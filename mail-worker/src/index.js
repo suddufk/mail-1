@@ -16,6 +16,11 @@ export default {
 			return app.fetch(req, env, ctx);
 		}
 
+		// Handle root path explicitly to avoid potential issues with Cloudflare Workers Assets
+		if (url.pathname === '/' || url.pathname === '') {
+			return env.assets.fetch(new Request(new URL(req.url).origin + '/index.html', req));
+		}
+
 		 if (['/static/','/attachments/'].some(p => url.pathname.startsWith(p))) {
 			 return await kvObjService.toObjResp( { env }, url.pathname.substring(1));
 		 }
