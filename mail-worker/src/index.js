@@ -10,6 +10,25 @@ export default {
 
 		const url = new URL(req.url)
 
+		if (url.pathname === '/internal/email' && req.method === 'POST') {
+			const from = req.headers.get('X-Email-From');
+			const to = req.headers.get('X-Email-To');
+			const rawBody = await req.arrayBuffer();
+
+			const message = {
+				from,
+				to,
+				headers: new Headers(JSON.parse(req.headers.get('X-Email-Headers') || '{}')),
+				raw: new Response(rawBody).body,
+				rawSize: rawBody.byteLength,
+				setReject(reason) { console.log('reject:', reason); },
+				forward() {},
+			};
+
+			await email(message, env, ctx);
+			return new Response('OK');
+		}
+
 		if (url.pathname.startsWith('/api/')) {
 			url.pathname = url.pathname.replace('/api', '')
 			req = new Request(url.toString(), req)
