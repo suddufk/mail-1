@@ -1,0 +1,46 @@
+name: 🔍 Validate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "mail-worker/**"
+      - "mail-vue/**"
+  push:
+    branches: [main]
+    paths:
+      - "mail-worker/**"
+      - "mail-vue/**"
+
+jobs:
+  lint-and-test:
+    name: 🧪 Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: "./mail-worker/pnpm-lock.yaml"
+
+      - name: 📦 Install worker dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ./mail-worker
+
+      - name: 🔍 Lint worker
+        run: pnpm lint
+        working-directory: ./mail-worker
+
+      - name: 🧪 Test worker
+        run: pnpm test
+        working-directory: ./mail-worker
+
+      - name: 🔒 Security audit
+        run: pnpm audit --audit-level=high || true
+        working-directory: ./mail-worker

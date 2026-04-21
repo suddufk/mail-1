@@ -25,3 +25,10 @@ mail-vue/node_modules
 mail-vue/dist
 .wrangler
 .venv
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+mail-vue/.env.*
+!mail-vue/.env.example
