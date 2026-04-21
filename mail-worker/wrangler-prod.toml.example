@@ -2,20 +2,19 @@ name = "cloud-mail"
 main = "src/index.js"
 compatibility_date = "2025-06-04"
 keep_vars = true
-account_id = "c807d419a1bf8b4c708033f75d8c797e"
+account_id = "<YOUR_CLOUDFLARE_ACCOUNT_ID>"
 
 [observability]
 enabled = true
 
-
 [[d1_databases]]
 binding = "db"
-database_name = "cloud-mail-wnam"
-database_id = "609fc518-f244-4184-ad80-da6a0a6c2662"
+database_name = "cloud-mail"
+database_id = "<YOUR_D1_DATABASE_ID>"
 
 [[kv_namespaces]]
 binding = "kv"
-id = "a7f3c44d3cba42e3a6226b2a06e79405"
+id = "<YOUR_KV_NAMESPACE_ID>"
 
 [[r2_buckets]]
 binding = "r2"
@@ -34,16 +33,16 @@ crons = ["0 16 * * *"]
 enabled = true
 
 [[routes]]
-pattern = "mail.ccvass.biz/*"
-zone_name = "ccvass.biz"
+pattern = "mail.<YOUR_DOMAIN>/*"
+zone_name = "<YOUR_DOMAIN>"
 
 [vars]
 orm_log = false
-domain = ["ccvass.biz"]
-admin = "admin@ccvass.biz"
-jwt_secret = "99CJTq3ufrCLimTnHBNPNgFqWPLPek5u9TMiRZyC0k"
-init_secret = "nnJI0AgioewoYGsY5ZPsmF5TEjQfLV0LDqw0zQZMc"
-allowed_origins = ["https://mail.ccvass.biz"]
+domain = ["<YOUR_DOMAIN>"]
+admin = "admin@<YOUR_DOMAIN>"
+jwt_secret = "<RANDOM_STRING_32_CHARS>"
+init_secret = "<DIFFERENT_RANDOM_STRING>"
+allowed_origins = ["https://mail.<YOUR_DOMAIN>"]
 
 [build]
 command = "pnpm --prefix ../mail-vue install && pnpm --prefix ../mail-vue run build"

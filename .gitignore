@@ -32,3 +32,5 @@ mail-vue/dist
 !.env.example
 mail-vue/.env.*
 !mail-vue/.env.example
+REMOTE.md
+mail-worker/wrangler-prod.toml

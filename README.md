@@ -1,7 +1,10 @@
 <p align="center">
     <img src="doc/demo/logo.png" width="80px" />
     <h1 align="center">Cloud Mail</h1>
-    <p align="center">基于 Cloudflare 的简约响应式邮箱服务，支持邮件发送、附件收发 🎉</p> 
+    <p align="center">Minimalist responsive email service based on Cloudflare, supporting email sending and attachment handling 🎉</p>
+    <p align="center">
+        Fork of <a href="https://github.com/maillab/cloud-mail">maillab/cloud-mail</a> with security hardening and improvements
+    </p>
     <p align="center">
         简体中文 | <a href="/README-en.md" style="margin-left: 5px">English </a>
     </p>
@@ -142,6 +145,37 @@ cloud-mail
 <a href="https://doc.skymail.ink/support.html" >
 <img width="170px" src="./doc/images/support.png" alt="">
 </a>
+
+## Fork Changes
+
+This fork adds the following improvements over the original:
+
+### Security Hardening
+
+- Rate limiting on login/register endpoints (IP and email-based)
+- CORS restricted to configured origins (`allowed_origins` env var)
+- `/init` endpoint: separate secret, one-time use, audit logging
+- JWT tokens with 2-hour expiration and auto-refresh
+- Password hashing upgraded to PBKDF2 (100k iterations) with legacy auto-upgrade
+- HTML sanitization on incoming emails (XSS prevention)
+
+### Bug Fixes
+
+- R2 attachment serving: fixed critical bug where attachments were always served from KV
+- R2 storage cleanup: daily cron job removes soft-deleted emails and their R2 objects after 30 days
+- Database migration tracking with `_migrations` table (idempotent, error reporting)
+
+### New Features
+
+- Per-user email forwarding to external addresses
+- CI/CD validation pipeline (ESLint + vitest + security audit)
+- Unit test suite (16 tests covering crypto, sanitization, rate limiting)
+
+### Documentation
+
+- [Deployment Guide](docs/DEPLOYMENT.md) with troubleshooting for all known issues
+- `.env.example` template for frontend configuration
+- `wrangler-prod.toml.example` template for production deployment
 
 ## 许可证
 
