@@ -118,7 +118,7 @@ app.use('*', async (c, next) => {
 		throw new BizError(t('authExpired'), 401);
 	}
 
-	const { userId, token } = result;
+	const { userId, token, exp } = result;
 	const authInfo = await c.env.kv.get(KvConst.AUTH_INFO + userId, { type: 'json' });
 
 	if (!authInfo) {
@@ -127,6 +127,12 @@ app.use('*', async (c, next) => {
 
 	if (!authInfo.tokens.includes(token)) {
 		throw new BizError(t('authExpired'), 401);
+	}
+
+	const now = Math.floor(Date.now() / 1000);
+	if (exp && (exp - now) < 1800) {
+		const newJwt = await jwtUtils.generateToken(c, { userId, token }, 60 * 60 * 2);
+		c.header('X-New-Token', newJwt);
 	}
 
 	const permIndex = requirePerms.findIndex(item => {
