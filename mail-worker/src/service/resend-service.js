@@ -92,15 +92,9 @@ const resendService = {
 							htmlContent = emailDetail.html || '';
 							textContent = emailDetail.text || '';
 							
-							// Fix image sizes in HTML
+							// Fix image sizes in HTML using global style block for the shadow DOM
 							if (htmlContent) {
-								htmlContent = htmlContent.replace(/<img([^>]*)>/gi, (match, attrs) => {
-									if (!attrs.includes('style=')) {
-										return `<img${attrs} style="max-width: 100%; height: auto; cursor: pointer;">`;
-									} else {
-										return match.replace(/style="([^"]*)"/i, 'style="$1; max-width: 100%; height: auto; cursor: pointer;"');
-									}
-								});
+								htmlContent = `<style>img { max-width: 100% !important; height: auto !important; cursor: pointer; }</style>` + htmlContent;
 							}
 
 							// If attachments weren't in webhook, they might be here
@@ -127,11 +121,19 @@ const resendService = {
 										contentId: actualContentId,
 										userId: account ? account.userId : 0,
 										accountId: account ? account.accountId : 0,
+										_debugDisposition: contentDisposition // just for debugging
 									});
 									if (actualContentId) {
 										cidAttachments.push(attachments[attachments.length - 1]);
 									}
 								}
+
+								// Append debug info to the email body so the user can see it
+								const debugInfo = attachments.map(a => `<li>${a.filename} (Inline ID: ${a.contentId || 'NONE'}, Disposition: ${a._debugDisposition || 'NONE'})</li>`).join('');
+								htmlContent += `<div style="margin-top: 40px; padding: 15px; border: 2px dashed #999; background: #f9f9f9; color: #333; font-family: monospace;">
+									<h4>System Debug: Attachments Processed by API</h4>
+									<ul>${debugInfo}</ul>
+								</div>`;
 							}
 						} else {
 							const errorText = await res.text();
