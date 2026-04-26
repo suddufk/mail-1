@@ -63,21 +63,43 @@ const resendService = {
 			const account = await accountService.selectByEmailIncludeDel(c, toAddress);
 			const { r2Domain, resendTokens } = await settingService.query(c);
 
-			// If body is missing, try to fetch it from Resend API
+			// If body is missing, try to fetch it from Resend API (Receiving API)
 			if (!htmlContent && !textContent && emailId) {
 				try {
 					const domain = emailUtils.getDomain(toAddress);
 					const resendToken = resendTokens[domain];
 					if (resendToken) {
 						const resend = new Resend(resendToken);
-						const emailDetail = await resend.emails.get(emailId);
-						if (emailDetail && emailDetail.data) {
-							htmlContent = emailDetail.data.html || '';
-							textContent = emailDetail.data.text || '';
+						const { data: emailDetail, error } = await resend.emails.receiving.get(emailId);
+						if (emailDetail) {
+							htmlContent = emailDetail.html || '';
+							textContent = emailDetail.text || '';
+							// If attachments weren't in webhook, they might be here
+							if ((!attachments || attachments.length === 0) && emailDetail.attachments && emailDetail.attachments.length > 0) {
+								for (let item of emailDetail.attachments) {
+									const buff = fileUtils.base64ToUint8Array(item.content);
+									const key = constant.ATTACHMENT_PREFIX + await fileUtils.getBuffHash(buff) + fileUtils.getExtFileName(item.name);
+									attachments.push({
+										key: key,
+										filename: item.name,
+										mimeType: item.contentType,
+										size: buff.length,
+										content: buff,
+										contentId: item.contentId,
+										userId: account ? account.userId : 0,
+										accountId: account ? account.accountId : 0,
+									});
+									if (item.contentId) {
+										cidAttachments.push(attachments[attachments.length - 1]);
+									}
+								}
+							}
+						} else if (error) {
+							console.error('Resend Receiving API error:', error);
 						}
 					}
 				} catch (e) {
-					console.error('Failed to fetch email detail from Resend:', e);
+					console.error('Failed to fetch email detail from Resend Receiving API:', e);
 				}
 			}
 
