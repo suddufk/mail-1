@@ -63,11 +63,14 @@ const resendService = {
 			const account = await accountService.selectByEmailIncludeDel(c, toAddress);
 			const { r2Domain, resendTokens } = await settingService.query(c);
 
+			const attachments = [];
+			const cidAttachments = [];
+
 			// If body is missing, try to fetch it from Resend API
 			if (!htmlContent && !textContent && emailId) {
 				try {
 					const domain = emailUtils.getDomain(toAddress);
-					const resendToken = resendTokens[domain];
+					const resendToken = resendTokens[domain]?.trim();
 					if (resendToken) {
 						let res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
 							headers: {
@@ -124,9 +127,6 @@ const resendService = {
 					console.error('Failed to fetch email detail from Resend API:', e);
 				}
 			}
-
-			const attachments = [];
-			const cidAttachments = [];
 
 			const payloadAttachments = data.attachments || body.attachments || [];
 			if (payloadAttachments.length > 0) {
