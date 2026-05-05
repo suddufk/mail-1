@@ -19,7 +19,7 @@
 
       <el-dropdown @command="handleLanguageSwitch" trigger="click">
         <div class="icon-item" style="font-size: 14px; font-weight: bold; outline: none;">
-          {{ locale === 'zh-cn' ? '中' : 'En' }}
+          {{ currentLanguageLabel }}
         </div>
         <template #dropdown>
           <el-dropdown-menu>
@@ -99,8 +99,7 @@ import {hasPerm} from "@/perm/perm.js"
 import {useI18n} from "vue-i18n";
 import {setExtend} from "@/utils/day.js"
 
-// 【修改处 1】：在这里解构出 locale，供模板中的 '中' / 'En' 切换判断使用
-const {t, locale} = useI18n(); 
+const {t, locale} = useI18n();
 const route = useRoute();
 const settingStore = useSettingStore();
 const userStore = useUserStore();
@@ -111,6 +110,10 @@ const userinfoRef = ref({})
 
 const accountCount = computed(() => {
   return userStore.user.role.accountCount
+})
+
+const currentLanguageLabel = computed(() => {
+  return settingStore.lang === 'zh-cn' ? '中' : 'En'
 })
 
 const sendType = computed(() => {
@@ -196,17 +199,14 @@ async function copyEmail(email) {
   }
 }
 
-// 【保留原作者的 changeLang 逻辑】，确保不破坏系统原有的时间本地化等设置
 function changeLang(lang) {
-  setExtend(lang === 'en' ? 'en' : 'zh-cn')
-  settingStore.lang = lang
+  settingStore.setLang(lang)
+  locale.value = settingStore.lang
+  setExtend(settingStore.lang)
 }
 
-// 【修改处 2】：新增下拉菜单实际调用的方法
 function handleLanguageSwitch(lang) {
-  changeLang(lang); // 先执行原系统设置
-  locale.value = lang; // 切换当前语言
-  localStorage.setItem('cloud_mail_lang', lang); // 存入本地缓存，配合 index.js 读取
+  changeLang(lang)
 }
 
 function openNotice() {

@@ -1,16 +1,14 @@
 import { createI18n } from 'vue-i18n';
 import en from './en.js'
 import zh from './zh.js'
-
-// 默认读取为 zh-cn
-const savedLanguage = localStorage.getItem('cloud_mail_lang') || 'zh-cn';
+import {getInitialLanguage} from "@/i18n/language.js";
 
 const i18n = createI18n({
     legacy: false,
-    locale: savedLanguage, 
+    locale: getInitialLanguage(),
     fallbackLocale: 'en',
     messages: {
-        'zh-cn': zh,   // <--- 核心修改：这里必须是 'zh-cn'，系统才认识
+        'zh-cn': zh,
         'en': en
     },
 });
