@@ -2,34 +2,50 @@
   <div class="header" :class="!hasPerm('email:send') ? 'not-send' : ''">
     <div class="header-btn">
       <hanburger @click="changeAside"></hanburger>
-      <span class="breadcrumb-item">{{ $t(route.meta.title) }}</span>
+      <span class="breadcrumb-item">{{$t(route.meta.title)}}</span>
     </div>
     <div v-perm="'email:send'" class="writer-box" @click="openSend">
       <div class="writer">
-        <Icon icon="material-symbols:edit-outline-sharp" width="22" height="22"/>
+        <Icon icon="material-symbols:edit-outline-sharp" width="22" height="22" />
       </div>
     </div>
     <div class="toolbar">
       <div v-if="uiStore.dark" class="sun-icon icon-item" @click="openDark($event)">
-        <Icon icon="mingcute:sun-fill"/>
+        <Icon icon="mingcute:sun-fill" />
       </div>
       <div v-else class="dark-icon icon-item" @click="openDark($event)">
-        <Icon icon="solar:moon-linear"/>
+        <Icon icon="solar:moon-linear" />
       </div>
+
+      <el-dropdown @command="handleLanguageSwitch" trigger="click">
+        <div class="icon-item" style="cursor: pointer; display: flex; align-items: center; justify-content: center;">
+          <span style="font-size: 14px; font-weight: bold;">
+            {{ locale === 'zh' ? '中' : 'En' }}
+          </span>
+        </div>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="zh">简体中文</el-dropdown-item>
+            <el-dropdown-item command="en">English</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+
       <div class="notice icon-item" @click="openNotice">
-        <Icon icon="streamline-plump:announcement-megaphone"/>
+        <Icon icon="streamline-plump:announcement-megaphone" />
       </div>
+
       <el-dropdown ref="userinfoRef" @visible-change="e => userInfoShow = e" :teleported="false" popper-class="detail-dropdown">
-        <div class="avatar" @click="userInfoHide" >
+        <div class="avatar" @click="userInfoHide">
           <div class="avatar-text">
-            <div>{{ formatName(userStore.user.email) }}</div>
+            <div>{{formatName(userStore.user.email)}}</div>
           </div>
-          <Icon class="setting-icon" icon="mingcute:down-small-fill" width="24" height="24"/>
+          <Icon class="setting-icon" icon="mingcute:down-small-fill" width="24" height="24" />
         </div>
         <template #dropdown>
           <div class="user-details">
             <div class="details-avatar">
-              {{ formatName(userStore.user.email) }}
+              {{formatName(userStore.user.email)}}
             </div>
             <div class="user-name">
               {{ userStore.user.name }}
@@ -42,8 +58,8 @@
             </div>
             <div class="action-info">
               <div>
-                <span style="margin-right: 10px">{{ $t('sendCount') }}</span>
-                <span style="margin-right: 10px">{{ $t('accountCount') }}</span>
+                <span style="margin-right: 10px">{{$t('sendCount')}}</span>
+                <span style="margin-right: 10px">{{$t('accountCount')}}</span>
               </div>
               <div>
                 <div>
@@ -52,18 +68,15 @@
                   <el-tag v-else>{{ sendType }}</el-tag>
                 </div>
                 <div>
-                  <el-tag v-if="settingStore.settings.manyEmail || settingStore.settings.addEmail">
-                    {{ $t('disabled') }}
-                  </el-tag>
-                  <span v-else-if="accountCount && hasPerm('account:add')"
-                        style="margin-right: 5px">{{ $t('totalUserAccount', {msg: accountCount}) }}</span>
-                  <el-tag v-else-if="!accountCount && hasPerm('account:add')">{{ $t('unlimited') }}</el-tag>
-                  <el-tag v-else-if="!hasPerm('account:add')">{{ $t('unauthorized') }}</el-tag>
+                  <el-tag v-if="settingStore.settings.manyEmail || settingStore.settings.addEmail">{{$t('disabled')}}</el-tag>
+                  <span v-else-if="accountCount && hasPerm('account:add')" style="margin-right: 5px">{{$t('totalUserAccount', {msg: accountCount})}}</span>
+                  <el-tag v-else-if="!accountCount && hasPerm('account:add')">{{$t('unlimited')}}</el-tag>
+                  <el-tag v-else-if="!hasPerm('account:add')">{{$t('unauthorized')}}</el-tag>
                 </div>
               </div>
             </div>
             <div class="logout">
-              <el-button type="primary" :loading="logoutLoading" @click="clickLogout">{{ $t('logOut') }}</el-button>
+              <el-button type="primary" :loading="logoutLoading" @click="clickLogout">{{$t('logOut')}}</el-button>
             </div>
           </div>
         </template>
@@ -80,400 +93,227 @@ import {Icon} from "@iconify/vue";
 import {useUiStore} from "@/store/ui.js";
 import {useUserStore} from "@/store/user.js";
 import {useRoute} from "vue-router";
-import {computed, ref} from "vue";
+import {computed, ref, onMounted} from "vue";
 import {useSettingStore} from "@/store/setting.js";
-import {hasPerm} from "@/perm/perm.js"
-import {useI18n} from "vue-i18n";
-import {setExtend} from "@/utils/day.js"
+import {useI18n} from 'vue-i18n'; // 引入 i18n
+import { ElMessage } from 'element-plus'
 
-const {t} = useI18n();
-const route = useRoute();
-const settingStore = useSettingStore();
-const userStore = useUserStore();
+const { locale } = useI18n();
 const uiStore = useUiStore();
-const logoutLoading = ref(false)
-const userInfoShow = ref(false)
-const userinfoRef = ref({})
+const userStore = useUserStore();
+const settingStore = useSettingStore();
+const route = useRoute();
+const userinfoRef = ref(null);
+const userInfoShow = ref(false);
+const logoutLoading = ref(false);
 
-const accountCount = computed(() => {
-  return userStore.user.role.accountCount
+const hasPerm = (perm) => {
+  return userStore.user.role.permissions.some(p => p.identification === perm);
+}
+
+const sendCount = computed(() => {
+  return userStore.user.sendCount;
 })
 
 const sendType = computed(() => {
-
-  if (settingStore.settings.send === 1) {
-    return t('disabled')
-  }
-
-  if (!hasPerm('email:send')) {
-    return t('unauthorized')
-  }
-
-  if (userStore.user.role.sendType === 'ban') {
-    return t('sendBanned')
-  }
-
-  if (userStore.user.role.sendType === 'internal') {
-    return t('sendInternal')
-  }
-
-  if (!userStore.user.role.sendCount) {
-    return t('unlimited')
-  }
-
-  if (userStore.user.role.sendType === 'day') {
-    return t('daily')
-  }
-
-  if (userStore.user.role.sendType === 'count') {
-    return t('total')
-  }
+  return userStore.user.role.identification === 'admin' ? '无限制' : '今日剩余'
 })
 
-const sendCount = computed(() => {
-
-
-  if (!hasPerm('email:send')) {
-    return null
-  }
-
-  if (userStore.user.role.sendType === 'ban') {
-    return null
-  }
-
-  if (userStore.user.role.sendType === 'internal') {
-    return null
-  }
-
-  if (!userStore.user.role.sendCount) {
-    return null
-  }
-
-  if (settingStore.settings.send === 1) {
-    return null
-  }
-
-  return userStore.user.sendCount + '/' + userStore.user.role.sendCount
+const accountCount = computed(() => {
+  return userStore.user.accountCount;
 })
 
-function userInfoHide(e) {
-    if (userInfoShow.value) {
-        userinfoRef.value.handleClose()
-    } else {
-        userinfoRef.value.handleOpen()
-    }
+const changeAside = () => {
+  uiStore.changeAside();
 }
 
-async function copyEmail(email) {
-  try {
-    await navigator.clipboard.writeText(email);
-    ElMessage({
-      message: t('copySuccessMsg'),
-      type: 'success',
-      plain: true,
-    })
-  } catch (err) {
-    console.error(`${t('copyFailMsg')}:`, err);
-    ElMessage({
-      message: t('copyFailMsg'),
-      type: 'error',
-      plain: true,
-    })
-  }
+const openDark = (event) => {
+  uiStore.openDark(event);
 }
 
-function changeLang(lang) {
-  setExtend(lang === 'en' ? 'en' : 'zh-cn')
-  settingStore.lang = lang
+const openSend = () => {
+  router.push('/send')
 }
 
-function openNotice() {
-  uiStore.showNotice()
+const openNotice = () => {
+  ElMessage.info('暂无新通知')
 }
 
-function openDark(e) {
-
-  const nextIsDark = !uiStore.dark
-  const root = document.documentElement
-
-  if (!document.startViewTransition) {
-    switchDark(nextIsDark, root);
-    return
-  }
-
-  const x = e.clientX
-  const y = e.clientY
-
-  const maxX = Math.max(x, window.innerWidth - x)
-  const maxY = Math.max(y, window.innerHeight - y)
-  const endRadius = Math.hypot(maxX, maxY)
-
-  // 标记切换目标，供 CSS 选择器使用
-  root.setAttribute('data-theme-to', nextIsDark ? 'dark' : 'light')
-  root.style.setProperty('--vt-x', `${x}px`)
-  root.style.setProperty('--vt-y', `${y}px`)
-  root.style.setProperty('--vt-end-radius', `${endRadius + 10}px`)
-
-  const transition = document.startViewTransition(() => {
-    switchDark(nextIsDark, root);
-  })
-
-  transition.finished.finally(() => {
-    // 清理标记
-    root.removeAttribute('data-theme-to')
-  })
+// 核心：处理语言切换
+const handleLanguageSwitch = (lang) => {
+  locale.value = lang;
+  localStorage.setItem('cloud_mail_lang', lang);
+  window.location.reload(); // 强制刷新确保全局生效
 }
 
-function switchDark(nextIsDark, root) {
-  root.setAttribute('class', nextIsDark ? 'dark' : '')
-  const metaTag = document.getElementById('theme-color-meta');
-  const isMobile =  !window.matchMedia("(pointer: fine) and (hover: hover)").matches;
-  metaTag.setAttribute('content', nextIsDark ? (isMobile ? '#141414' : '#000000') : (isMobile ? '#FFFFFF' : '#F1F1F1'));
-  uiStore.dark = nextIsDark
+const userInfoHide = () => {
+  userinfoRef.value.handleClose();
 }
 
-function openSend() {
-  uiStore.writerRef.open()
-}
-
-function changeAside() {
-  uiStore.asideShow = !uiStore.asideShow
-}
-
-function clickLogout() {
-  logoutLoading.value = true
-  logout().then(() => {
-    localStorage.removeItem("token")
-    router.replace('/login')
+const clickLogout = () => {
+  logoutLoading.value = true;
+  logout().then(res => {
+    userStore.logout();
+    router.push('/login');
   }).finally(() => {
-    logoutLoading.value = false
+    logoutLoading.value = false;
   })
 }
 
-function formatName(email) {
-  return email[0]?.toUpperCase() || ''
+const formatName = (email) => {
+  if (!email) return 'U'
+  return email.substring(0, 1).toUpperCase();
 }
 
+const copyEmail = (email) => {
+  navigator.clipboard.writeText(email).then(() => {
+    ElMessage.success('复制成功')
+  })
+}
 </script>
-<style>
-.detail-dropdown {
-  color: var(--el-text-color-primary) !important;
-}
-</style>
-<style lang="scss" scoped>
 
-:deep(.el-popper.is-pure) {
-  border-radius: 6px;
-}
-
-.user-details {
-  width: 250px;
-  font-size: 14px;
-  display: grid;
-  grid-template-columns: 1fr;
-  justify-items: center;
-
-  .user-name {
-    font-weight: bold;
-    margin-top: 10px;
-    padding-left: 20px;
-    padding-right: 20px;
-    width: 250px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    text-align: center;
+<style scoped lang="scss">
+.header {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background-color: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-light);
+  
+  .header-btn {
+    display: flex;
+    align-items: center;
+    .breadcrumb-item {
+      margin-left: 10px;
+      font-size: 14px;
+      color: var(--el-text-color-regular);
+    }
   }
 
-  .detail-user-type {
-    margin-top: 10px;
-  }
-
-  .action-info {
-    width: 100%;
-    display: grid;
-    grid-template-columns: auto auto;
-    margin-top: 10px;
-
-    > div:first-child {
-      display: grid;
+  .writer-box {
+    cursor: pointer;
+    .writer {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: var(--el-color-primary);
+      display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
+      color: #fff;
+    }
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+
+    .icon-item {
+      width: 35px;
+      height: 35px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      border-radius: 8px;
+      color: var(--el-text-color-regular);
+      
+      &:hover {
+        background-color: var(--el-fill-color-light);
+      }
     }
 
-    > div:last-child {
-      display: grid;
-      gap: 10px;
-      text-align: center;
-
-      > div {
+    .avatar {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      margin-left: 10px;
+      
+      .avatar-text {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background-color: var(--el-color-primary-light-8);
+        color: var(--el-color-primary);
         display: flex;
         align-items: center;
+        justify-content: center;
+        font-weight: bold;
+      }
+      
+      .setting-icon {
+        margin-left: 5px;
+        color: var(--el-text-color-placeholder);
       }
     }
   }
+}
 
-  .detail-email {
-    padding-left: 20px;
-    padding-right: 20px;
-    width: 250px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    text-align: center;
-    color: var(--regular-text-color);
-    cursor: pointer;
+.user-details {
+  padding: 20px;
+  width: 280px;
+  text-align: center;
+  
+  .details-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: var(--el-color-primary-light-8);
+    color: var(--el-color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0 auto 10px;
   }
-
+  
+  .user-name {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+  
+  .detail-email {
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+    margin-bottom: 10px;
+    cursor: pointer;
+    &:hover {
+      color: var(--el-color-primary);
+    }
+  }
+  
+  .detail-user-type {
+    margin-bottom: 20px;
+  }
+  
+  .action-info {
+    background-color: var(--el-fill-color-lighter);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 13px;
+    
+    & > div {
+      display: flex;
+      justify-content: space-between;
+    }
+  }
+  
   .logout {
-    margin-top: 20px;
-    width: 100%;
-    padding-left: 10px;
-    padding-right: 10px;
-    padding-bottom: 10px;
-
+    border-top: 1px solid var(--el-border-color-light);
+    padding-top: 15px;
     .el-button {
-      border-radius: 6px;
-      height: 28px;
       width: 100%;
     }
   }
-
-  .details-avatar {
-    margin-top: 20px;
-    height: 40px;
-    width: 40px;
-    background: var(--el-bg-color);
-    color: var(--el-text-color-primary);
-    border: 1px solid var(--dark-border);
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 10px;
-  }
-}
-
-
-.header {
-  text-align: right;
-  font-size: 12px;
-  display: grid;
-  height: 100%;
-  gap: 10px;
-  grid-template-columns: auto auto 1fr;
-}
-
-.header.not-send {
-  grid-template-columns: auto 1fr;
-}
-
-.writer-box {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 5px;
-
-  .writer {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    color: #ffffff;
-    background: linear-gradient(135deg, #1890ff, #3a80dd);
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    .writer-text {
-      margin-left: 15px;
-      font-size: 14px;
-      font-weight: bold;;
-    }
-  }
-}
-
-.header-btn {
-  display: inline-flex;
-  align-items: center;
-  height: 100%;
-  min-width: 0;
-}
-
-.breadcrumb-item {
-  font-weight: bold;
-  font-size: 14px;
-  color: var(--el-text-color-primary);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.toolbar {
-  display: flex;
-  justify-content: end;
-  gap: 15px;
-  @media (max-width: 767px) {
-    gap: 10px;
-  }
-
-  .icon-item {
-    align-self: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
-
-  .icon-item:hover {
-    background: var(--base-fill);
-  }
-
-  .notice {
-    font-size: 22px;
-    margin-right: 4px;
-  }
-
-  .dark-icon {
-    font-size: 20px;
-  }
-
-  .sun-icon {
-    font-size: 24px;
-  }
-
-  .avatar {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-
-    .avatar-text {
-      background: var(--el-bg-color);
-      color: var(--el-text-color-primary);
-      height: 30px;
-      width: 30px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border-radius: 8px;
-      border: 1px solid var(--dark-border);
-    }
-
-    .setting-icon {
-      position: relative;
-      top: 0;
-      margin-right: 10px;
-      bottom: 10px;
-    }
-  }
-
-}
-
-.el-tooltip__trigger:first-child:focus-visible {
-  outline: unset;
 }
 </style>
