@@ -179,6 +179,15 @@ export async function email(message, env, ctx) {
 
 		}
 
+		// Per-user forwarding (account-level)
+		if (account && account.forwardEmail) {
+			try {
+				await message.forward(account.forwardEmail);
+			} catch (e) {
+				console.error(`Per-user forward to ${account.forwardEmail} failed:`, e);
+			}
+		}
+
 	} catch (e) {
 		console.error('邮件接收异常: ', e);
 		throw e
