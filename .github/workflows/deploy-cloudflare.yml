@@ -26,10 +26,14 @@ jobs:
       KV_NAMESPACE_ID: ${{ secrets.KV_NAMESPACE_ID || vars.KV_NAMESPACE_ID }}
       R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME || vars.R2_BUCKET_NAME }}
       PROJECT_LINK: ${{ secrets.PROJECT_LINK || vars.PROJECT_LINK }}
+      AI_MODEL: ${{ secrets.AI_MODEL || vars.AI_MODEL || '@cf/meta/llama-3.1-8b-instruct' }}
+      CLOUDFLARE_EMAIL: ${{ secrets.CF_EMAIL || vars.CF_EMAIL || false }}
+      ANALYSIS_CACHE: ${{ secrets.ANALYSIS_CACHE || vars.ANALYSIS_CACHE || false }}
       LINUXDO_CLIENT_ID: ${{ secrets.LINUXDO_CLIENT_ID || vars.LINUXDO_CLIENT_ID }}
       LINUXDO_CLIENT_SECRET: ${{ secrets.LINUXDO_CLIENT_SECRET || vars.LINUXDO_CLIENT_SECRET }}
       LINUXDO_CALLBACK_URL: ${{ secrets.LINUXDO_CALLBACK_URL || vars.LINUXDO_CALLBACK_URL }}
       LINUXDO_SWITCH: ${{ secrets.LINUXDO_SWITCH || vars.LINUXDO_SWITCH }}
+
 
     outputs:
       worker_url: ${{ steps.deploy.outputs.worker_url }}
@@ -47,7 +51,7 @@ jobs:
       - name: ⚙ 设置 Node.js / Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "pnpm"
           cache-dependency-path: "./mail-worker/pnpm-lock.yaml"
 
@@ -76,7 +80,7 @@ jobs:
             printf '%s=%s\n' "$name" "$value" >> "$GITHUB_ENV"
           }
 
-          for name in NAME CUSTOM_DOMAIN DOMAIN ADMIN JWT_SECRET CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID D1_DATABASE_ID KV_NAMESPACE_ID R2_BUCKET_NAME PROJECT_LINK LINUXDO_CLIENT_ID LINUXDO_CLIENT_SECRET LINUXDO_CALLBACK_URL LINUXDO_SWITCH; do
+          for name in NAME CUSTOM_DOMAIN DOMAIN ADMIN JWT_SECRET CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID D1_DATABASE_ID KV_NAMESPACE_ID R2_BUCKET_NAME PROJECT_LINK AI_MODEL CLOUDFLARE_EMAIL ANALYSIS_CACHE LINUXDO_CLIENT_ID LINUXDO_CLIENT_SECRET LINUXDO_CALLBACK_URL LINUXDO_SWITCH; do
             normalize_env "$name"
           done
           
@@ -155,6 +159,9 @@ jobs:
                   result.append(line)
               return "".join(result)
 
+          def truthy(value):
+              return value.strip().lower() == "true"
+
           config_file = Path(os.environ["CONFIG_FILE"])
           text = config_file.read_text(encoding="utf-8")
 
@@ -166,6 +173,8 @@ jobs:
               text = remove_line_range(text, "linuxdo_client_id = ", "linuxdo_switch = ")
           if not os.environ.get("CUSTOM_DOMAIN"):
               text = remove_table(text, "[[routes]]")
+          if truthy(os.environ.get("CLOUDFLARE_EMAIL", "")):
+              text = text.rstrip() + '\n\n[[send_email]]\nname = "email"\n'
 
           # DOMAIN is a JSON array and must replace the quoted TOML placeholder.
           text = text.replace('"${DOMAIN}"', os.environ["DOMAIN"])
@@ -177,6 +186,8 @@ jobs:
               "JWT_SECRET",
               "R2_BUCKET_NAME",
               "PROJECT_LINK",
+              "AI_MODEL",
+              "ANALYSIS_CACHE",
               "LINUXDO_CLIENT_ID",
               "LINUXDO_CLIENT_SECRET",
               "LINUXDO_CALLBACK_URL",
