@@ -26,7 +26,6 @@ export async function email(message, env, ctx) {
 			ruleEmail,
 			ruleType,
 			resendTokens,
-			domainList,
 			r2Domain,
 			noRecipient,
 			blackSubject,
@@ -172,7 +171,7 @@ export async function email(message, env, ctx) {
 
 			await Promise.all(emails.map(async forwardTo => {
 
-				await forwardToEmail({ env }, message, emailRow, email, attachments, forwardTo, message.to, resendTokens, domainList);
+				await forwardToEmail({ env }, message, emailRow, email, attachments, forwardTo, message.to, resendTokens);
 
 			}));
 
@@ -184,10 +183,9 @@ export async function email(message, env, ctx) {
 	}
 }
 
-async function forwardToEmail(c, message, emailRow, parsedEmail, attachments, forwardTo, fromEmail, resendTokens, domainList) {
+async function forwardToEmail(c, message, emailRow, parsedEmail, attachments, forwardTo, fromEmail, resendTokens) {
 
-	if (isInternalForwardTarget(domainList, forwardTo)) {
-		await copyToInternalAccount(c, emailRow, attachments, forwardTo, fromEmail);
+	if (await copyToInternalAccount(c, emailRow, attachments, forwardTo, fromEmail)) {
 		return;
 	}
 
@@ -212,13 +210,13 @@ async function forwardToEmail(c, message, emailRow, parsedEmail, attachments, fo
 async function copyToInternalAccount(c, sourceEmail, attachments, forwardTo, originalTo) {
 
 	if (normalizeEmailAddress(forwardTo) === normalizeEmailAddress(originalTo)) {
-		return;
+		return true;
 	}
 
 	const targetAccount = await resolveInternalForwardAccount(c, forwardTo);
 
 	if (!targetAccount) {
-		return;
+		return false;
 	}
 
 	const targetUser = await userService.selectByIdIncludeDel(c, targetAccount.userId);
@@ -251,6 +249,7 @@ async function copyToInternalAccount(c, sourceEmail, attachments, forwardTo, ori
 
 	const copiedEmail = await emailService.receive(c, emailCopy, [], '');
 	await attService.copyAtt(c, attachments, targetAccount.userId, targetAccount.accountId, copiedEmail.emailId);
+	return true;
 }
 
 async function resolveInternalForwardAccount(c, forwardTo) {
@@ -268,7 +267,11 @@ async function resolveInternalForwardAccount(c, forwardTo) {
 
 	const targetUser = await userService.selectByEmailIncludeDel(c, forwardTo);
 
-	if (!targetUser || targetUser.isDel === isDel.DELETE) {
+	if (!targetUser) {
+		return null;
+	}
+
+	if (targetUser.isDel === isDel.DELETE) {
 		console.error(`站内转发目标 ${forwardTo} 不存在或已删除`);
 		return null;
 	}
@@ -311,11 +314,6 @@ async function sendForwardCopy(c, email, attachments, forwardTo, fromEmail, rese
 
 	throw new Error('No fallback email provider configured');
 
-}
-
-function isInternalForwardTarget(domainList, forwardTo) {
-	const domain = normalizeEmailAddress(emailUtils.getDomain(forwardTo));
-	return !!domain && domainList?.some(item => normalizeEmailAddress(item) === `@${domain}`);
 }
 
 function checkBlock(blackSubjectStr, blackContentStr, blackFromStr, email) {
