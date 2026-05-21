@@ -215,10 +215,9 @@ async function copyToInternalAccount(c, sourceEmail, attachments, forwardTo, ori
 		return;
 	}
 
-	const targetAccount = await accountService.selectByEmailIncludeDel(c, forwardTo);
+	const targetAccount = await resolveInternalForwardAccount(c, forwardTo);
 
-	if (!targetAccount || targetAccount.isDel === isDel.DELETE) {
-		console.error(`站内转发目标 ${forwardTo} 不存在或已删除`);
+	if (!targetAccount) {
 		return;
 	}
 
@@ -254,6 +253,35 @@ async function copyToInternalAccount(c, sourceEmail, attachments, forwardTo, ori
 	await attService.copyAtt(c, attachments, targetAccount.userId, targetAccount.accountId, copiedEmail.emailId);
 }
 
+async function resolveInternalForwardAccount(c, forwardTo) {
+
+	const targetAccount = await accountService.selectByEmailIncludeDel(c, forwardTo);
+
+	if (targetAccount?.isDel === isDel.NORMAL) {
+		return targetAccount;
+	}
+
+	if (targetAccount?.isDel === isDel.DELETE) {
+		console.error(`站内转发目标 ${forwardTo} 已删除`);
+		return null;
+	}
+
+	const targetUser = await userService.selectByEmailIncludeDel(c, forwardTo);
+
+	if (!targetUser || targetUser.isDel === isDel.DELETE) {
+		console.error(`站内转发目标 ${forwardTo} 不存在或已删除`);
+		return null;
+	}
+
+	await accountService.insert(c, {
+		email: targetUser.email,
+		name: emailUtils.getName(targetUser.email),
+		userId: targetUser.userId
+	});
+
+	return await accountService.selectByEmailIncludeDel(c, targetUser.email);
+}
+
 async function sendForwardCopy(c, email, attachments, forwardTo, fromEmail, resendTokens) {
 
 	const accountEmail = fromEmail || email.to?.[0]?.address || c.env.admin;
@@ -286,8 +314,8 @@ async function sendForwardCopy(c, email, attachments, forwardTo, fromEmail, rese
 }
 
 function isInternalForwardTarget(domainList, forwardTo) {
-	const domain = emailUtils.getDomain(forwardTo);
-	return !!domain && domainList?.includes(`@${domain}`);
+	const domain = normalizeEmailAddress(emailUtils.getDomain(forwardTo));
+	return !!domain && domainList?.some(item => normalizeEmailAddress(item) === `@${domain}`);
 }
 
 function checkBlock(blackSubjectStr, blackContentStr, blackFromStr, email) {
