@@ -106,6 +106,7 @@ const settingService = {
 
 		let regVerifyOpen = false
 		let addVerifyOpen = false
+		let loginVerifyOpen = false
 
 		recordList.forEach(row => {
 			if (row.type === verifyRecordType.REG) {
@@ -114,10 +115,14 @@ const settingService = {
 			if (row.type === verifyRecordType.ADD) {
 				addVerifyOpen = row.count >= settingRow.addVerifyCount
 			}
+			if (row.type === verifyRecordType.LOGIN) {
+				loginVerifyOpen = row.count >= settingRow.loginVerifyCount
+			}
 		})
 
 		settingRow.regVerifyOpen = regVerifyOpen
 		settingRow.addVerifyOpen = addVerifyOpen
+		settingRow.loginVerifyOpen = loginVerifyOpen
 
 		settingRow.storageType = await r2Service.storageType(c);
 
@@ -225,6 +230,9 @@ const settingService = {
 			regKey: settingRow.regKey,
 			regVerifyOpen: settingRow.regVerifyOpen,
 			addVerifyOpen: settingRow.addVerifyOpen,
+			loginVerify: settingRow.loginVerify,
+			loginVerifyCount: settingRow.loginVerifyCount,
+			loginVerifyOpen: settingRow.loginVerifyOpen,
 			noticeTitle: settingRow.noticeTitle,
 			noticeContent: settingRow.noticeContent,
 			noticeType: settingRow.noticeType,

@@ -201,29 +201,61 @@ const loginService = {
 
 	async login(c, params, noVerifyPwd = false) {
 
-		const { email, password } = params;
+		const { email, password, token } = params;
 
 		if ((!email || !password) && !noVerifyPwd) {
 			throw new BizError(t('emailAndPwdEmpty'));
 		}
 
+		let { loginVerify, loginVerifyCount } = await settingService.query(c)
+
+		if (noVerifyPwd) {
+			loginVerify = settingConst.registerVerify.CLOSE;
+		}
+
+		let loginVerifyOpen = false
+
+		if (loginVerify === settingConst.registerVerify.OPEN) {
+			loginVerifyOpen = true
+			await turnstileService.verify(c,token)
+		}
+
+		if (loginVerify === settingConst.registerVerify.COUNT) {
+			loginVerifyOpen = await verifyRecordService.isOpenLoginVerify(c, loginVerifyCount);
+			if (loginVerifyOpen) {
+				await turnstileService.verify(c,token)
+			}
+		}
+
 		const userRow = await userService.selectByEmailIncludeDel(c, email);
 
 		if (!userRow) {
+			if (!noVerifyPwd) {
+				await verifyRecordService.increaseLoginCount(c);
+			}
 			throw new BizError(t('notExistUser'));
 		}
 
 		if(userRow.isDel === isDel.DELETE) {
+			if (!noVerifyPwd) {
+				await verifyRecordService.increaseLoginCount(c);
+			}
 			throw new BizError(t('isDelUser'));
 		}
 
 		if(userRow.status === userConst.status.BAN) {
+			if (!noVerifyPwd) {
+				await verifyRecordService.increaseLoginCount(c);
+			}
 			throw new BizError(t('isBanUser'));
 		}
 
 		if (!await cryptoUtils.verifyPassword(password, userRow.salt, userRow.password) && !noVerifyPwd) {
+			await verifyRecordService.increaseLoginCount(c);
 			throw new BizError(t('IncorrectPwd'));
 		}
+
+		await verifyRecordService.clearLoginCount(c);
 
 		const uuid = uuidv4();
 		const jwt = await JwtUtils.generateToken(c,{ userId: userRow.userId, token: uuid });

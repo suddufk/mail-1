@@ -141,6 +141,7 @@ export const settingConst = {
 export const verifyRecordType = {
 	REG: 0,
 	ADD: 1,
+	LOGIN: 2,
 }
 
 

@@ -40,6 +40,16 @@ const dbInit = {
 		} catch (e) {
 			console.warn(`跳过字段：${e.message}`);
 		}
+		try {
+			await c.env.db.prepare(`ALTER TABLE setting ADD COLUMN login_verify INTEGER NOT NULL DEFAULT 1;`).run();
+		} catch (e) {
+			console.warn(`跳过字段：${e.message}`);
+		}
+		try {
+			await c.env.db.prepare(`ALTER TABLE setting ADD COLUMN login_verify_count INTEGER NOT NULL DEFAULT 3;`).run();
+		} catch (e) {
+			console.warn(`跳过字段：${e.message}`);
+		}
 	},
 
 	async v3_0DB(c) {
