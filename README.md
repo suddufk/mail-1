@@ -64,6 +64,8 @@
 
 - **🤖 Agent API**：面向 LLM Agent 的 REST 接口（独立 token 鉴权）——列表/读取/发送/删除/已读/附件下载，详见 [doc/AGENT_API.md](doc/AGENT_API.md)
 
+- **🔌 MCP Server**：内置 Model Context Protocol 服务（Streamable HTTP，端点 `/mcp`），Claude Code/Desktop、Cursor 等客户端配一个 URL + token 即可使用全部能力，详见 [doc/MCP.md](doc/MCP.md)
+
 - **🔢 验证码识别**：使用Workers AI，自动识别邮件验证码 
 
 - **📈 数据可视化**：使用ECharts对系统数据详情，用户邮件增长可视化显示

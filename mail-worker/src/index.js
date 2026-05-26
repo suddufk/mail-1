@@ -6,10 +6,15 @@ import emailService from './service/email-service';
 import kvObjService from './service/kv-obj-service';
 import oauthService from "./service/oauth-service";
 import analysisService from './service/analysis-service';
+import mcpServer from './mcp/server';
 export default {
 	 async fetch(req, env, ctx) {
 
 		const url = new URL(req.url)
+
+		if (url.pathname === '/mcp' || url.pathname === '/api/mcp') {
+			return mcpServer.handle(req, env, ctx);
+		}
 
 		if (url.pathname.startsWith('/api/')) {
 			url.pathname = url.pathname.replace('/api', '')
