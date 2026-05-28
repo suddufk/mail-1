@@ -46,6 +46,7 @@ export const setting = sqliteTable('setting', {
 	tgMsgFrom: text('tg_msg_from').default('only-name').notNull(),
 	tgMsgTo: text('tg_msg_to').default('show').notNull(),
 	tgMsgText: text('tg_msg_text').default('hide').notNull(),
+	tgMsgLink: text('tg_msg_link').default('show').notNull(),
 	minEmailPrefix: integer('min_email_prefix').default(0).notNull(),
 	emailPrefixFilter: text('email_prefix_filter').default('').notNull(),
 	blackSubject: text('black_subject').default('').notNull(),

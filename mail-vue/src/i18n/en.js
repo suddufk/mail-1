@@ -314,6 +314,7 @@ const en = {
     hide: 'Hide',
     onlyName: 'Only name',
     emailText: 'Email Text',
+    showFullLinkAddress: 'Show Full Link Address',
     emailPrefix: 'Email Prefix',
     atLeast: 'At Least',
     character: '',

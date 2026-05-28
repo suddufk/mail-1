@@ -568,6 +568,17 @@
               />
             </el-select>
           </div>
+          <div class="tg-msg-label">
+            <span>{{t('showFullLinkAddress')}}</span>
+            <el-select  v-model="tgMsgLink" >
+              <el-option
+                  v-for="item in tgMsgLinkOption"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+              />
+            </el-select>
+          </div>
         </div>
         <template #footer>
           <div class="dialog-footer">
@@ -938,10 +949,12 @@ const ruleEmail = ref([])
 const tgMsgFrom = ref('')
 const tgMsgTo = ref('')
 const tgMsgText = ref('')
+const tgMsgLink = ref('show')
 
 const tgMsgFromOption = [{label: t('show'), value: 'show'}, {label: t('hide'), value: 'hide'}, {label: t('onlyName'), value:'only-name'}]
 const tgMsgToOption = [{label: t('show'), value: 'show'}, {label: t('hide'), value: 'hide'}]
 const tgMsgTextOption = [{label: t('show'), value: 'show'}, {label: t('hide'), value: 'hide'}]
+const tgMsgLinkOption = [{label: t('show'), value: 'show'}, {label: t('hide'), value: 'hide'}]
 const tgMsgLabelWidth = computed(() => locale.value === 'en' ? '120px' : '100px');
 
 getSettings()
@@ -1069,6 +1082,7 @@ function openTgSetting() {
   tgMsgFrom.value = setting.value.tgMsgFrom
   tgMsgText.value = setting.value.tgMsgText
   tgMsgTo.value = setting.value.tgMsgTo
+  tgMsgLink.value = setting.value.tgMsgLink || 'show'
   tgChatId.value = []
   if (setting.value.tgChatId) {
     const list = setting.value.tgChatId.split(',')
@@ -1210,7 +1224,8 @@ function tgBotSave() {
     tgChatId: tgChatId.value + '',
     tgMsgFrom: tgMsgFrom.value,
     tgMsgText: tgMsgText.value,
-    tgMsgTo: tgMsgTo.value
+    tgMsgTo: tgMsgTo.value,
+    tgMsgLink: tgMsgLink.value
   }
   if (tgBotToken.value) form.tgBotToken = tgBotToken.value
   editSetting(form)

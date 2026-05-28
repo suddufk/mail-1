@@ -314,6 +314,7 @@ const zh = {
     hide: '隐藏',
     onlyName: '仅名字',
     emailText: '邮件文本',
+    showFullLinkAddress: '超链接显示完整地址',
     emailPrefix: '邮箱前缀',
     atLeast: '至少',
     character: '位',

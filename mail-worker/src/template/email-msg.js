@@ -5,6 +5,7 @@ const TRUNCATED_SUFFIX = '...';
 
 function escapeHtml(text = '') {
 	return text
+		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')
 		.replace(/>/g, '&gt;');
 }
@@ -18,10 +19,34 @@ function truncateText(text, maxLength) {
 		return TRUNCATED_SUFFIX.slice(0, maxLength);
 	}
 
-	return text.slice(0, maxLength - TRUNCATED_SUFFIX.length) + TRUNCATED_SUFFIX;
+	let truncated = text.slice(0, maxLength - TRUNCATED_SUFFIX.length);
+	const lastTagStart = truncated.lastIndexOf('<');
+	const lastTagEnd = truncated.lastIndexOf('>');
+
+	if (lastTagStart > lastTagEnd) {
+		truncated = truncated.slice(0, lastTagStart);
+	}
+
+	const openLinkCount = (truncated.match(/<a\b[^>]*>/gi) || []).length;
+	const closeLinkCount = (truncated.match(/<\/a>/gi) || []).length;
+
+	if (openLinkCount > closeLinkCount) {
+		truncated += '</a>';
+	}
+
+	return truncated + TRUNCATED_SUFFIX;
 }
 
-export default function emailMsgTemplate(email, tgMsgTo, tgMsgFrom, tgMsgText) {
+function getEmailText(email, tgMsgLink) {
+	if (tgMsgLink === 'hide') {
+		return emailUtils.htmlToTelegramHtmlLinks(email.content)
+			|| emailUtils.textToTelegramHtmlLinks(email.text);
+	}
+
+	return escapeHtml(emailUtils.formatText(email.text) || emailUtils.htmlToText(email.content));
+}
+
+export default function emailMsgTemplate(email, tgMsgTo, tgMsgFrom, tgMsgText, tgMsgLink = 'show') {
 
 	let template = `<b>${escapeHtml(email.subject || '')}</b>`
 
@@ -47,7 +72,7 @@ To：\u200B${escapeHtml(email.toEmail || '')}`
 To：\u200B${escapeHtml(email.toEmail || '')}`
 	}
 
-	const text = escapeHtml(emailUtils.formatText(email.text) || emailUtils.htmlToText(email.content));
+	const text = getEmailText(email, tgMsgLink);
 
 	if(tgMsgText === 'show') {
 		const prefix = `${template}

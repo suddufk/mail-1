@@ -45,7 +45,7 @@ const telegramService = {
 
 	async sendEmailToBot(c, email) {
 
-		const { tgBotToken, tgChatId, customDomain, tgMsgTo, tgMsgFrom, tgMsgText } = await settingService.query(c);
+		const { tgBotToken, tgChatId, customDomain, tgMsgTo, tgMsgFrom, tgMsgText, tgMsgLink } = await settingService.query(c);
 
 		const tgChatIds = tgChatId.split(',');
 
@@ -80,7 +80,7 @@ const telegramService = {
 					body: JSON.stringify({
 						chat_id: chatId,
 						parse_mode: 'HTML',
-						text: emailMsgTemplate(email, tgMsgTo, tgMsgFrom, tgMsgText),
+						text: emailMsgTemplate(email, tgMsgTo, tgMsgFrom, tgMsgText, tgMsgLink),
 						reply_markup: {
 							inline_keyboard: inlineKeyboard
 						}
