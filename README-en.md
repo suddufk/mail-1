@@ -75,9 +75,9 @@ With only one domain, you can create multiple different email addresses, similar
 
 - **ORM**: [Drizzle](https://orm.drizzle.team/)
 
-- **Frontend Framework**: [Vue3](https://vuejs.org/)
+- **Frontend Framework**: [React](https://react.dev/)
 
-- **UI Framework**: [Element Plus](https://element-plus.org/)
+- **UI Framework**: [HeroUI](https://www.heroui.com/)
 
 - **Email Service**: [Resend](https://resend.com/)
 
@@ -111,23 +111,17 @@ cloud-mail
 │   ├── package.json			# Project dependencies
 │   └── wrangler.toml			# Project configuration
 │
-├─ mail-vue				        # Frontend Vue project
+├─ mail-web				        # Frontend React project
 │   ├── src
-│   │   ├── axios 			    # Axios configuration
+│   │   ├── api 			    # API client
 │   │   ├── components			# Custom components
-│   │   ├── echarts			    # ECharts integration
 │   │   ├── i18n			    # Internationalization
-│   │   ├── init			    # Startup initialization
-│   │   ├── layout			    # Main layout components
-│   │   ├── perm			    # Permissions and access control
-│   │   ├── request			    # API request layer
-│   │   ├── router			    # Router configuration
+│   │   ├── lib			    # Request, permission, and utility layer
+│   │   ├── pages			    # Page components
 │   │   ├── store			    # Global state management
-│   │   ├── utils			    # Utility functions
-│   │   ├── views			    # Page components
-│   │   ├── app.vue			    # Root component
-│   │   ├── main.js			    # Entry JS file
-│   │   └── style.css			# Global styles
+│   │   ├── App.tsx			    # Root component
+│   │   ├── main.tsx			    # Entry TSX file
+│   │   └── styles.css			# Global styles
 │   ├── package.json			# Project dependencies
 └── └── env.release				# Environment configuration
 

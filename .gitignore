@@ -25,3 +25,11 @@ mail-vue/node_modules
 mail-vue/dist
 .wrangler
 .venv
+
+# Local Cloudflare Wrangler configs may contain account IDs, resource IDs,
+# domains, admin emails, and jwt_secret values. Keep examples in git instead.
+mail-worker/wrangler.toml
+mail-worker/wrangler-dev.toml
+mail-worker/wrangler-test.toml
+!mail-worker/wrangler-action.toml
+!mail-worker/wrangler*.example.toml

@@ -1,0 +1,43 @@
+name = "cloud-mail-test"
+main = "src/index.js"
+compatibility_date = "2025-06-04"
+keep_vars = true
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "db"
+database_name = "cloud-mail-test"
+database_id = "REPLACE_WITH_TEST_D1_DATABASE_ID"
+
+[[kv_namespaces]]
+binding = "kv"
+id = "REPLACE_WITH_TEST_KV_NAMESPACE_ID"
+
+#[[r2_buckets]]
+#binding = "r2"
+#bucket_name = "cloud-mail-test"
+
+[ai]
+binding = "ai"
+
+[assets]
+binding = "assets"
+directory = "./dist"
+not_found_handling = "single-page-application"
+run_worker_first = true
+
+[triggers]
+crons = ["*/30 * * * *", "0 16 * * *"]
+
+[vars]
+ai_model = ""
+analysis_cache = false
+orm_log = false
+domain = ["example.com"]
+admin = "admin@example.com"
+jwt_secret = "REPLACE_WITH_LONG_RANDOM_TEST_SECRET"
+
+[build]
+command = "pnpm --prefix ../mail-web install && pnpm --prefix ../mail-web run build"

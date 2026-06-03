@@ -1,0 +1,43 @@
+name = "cloud-mail-dev"
+main = "src/index.js"
+compatibility_date = "2025-06-04"
+keep_vars = true
+
+[observability]
+enabled = true
+
+[dev]
+ip = "0.0.0.0"
+
+[[d1_databases]]
+binding = "db"
+database_name = "cloud-mail-dev"
+database_id = "REPLACE_WITH_DEV_D1_DATABASE_ID"
+
+[[kv_namespaces]]
+binding = "kv"
+id = "REPLACE_WITH_DEV_KV_NAMESPACE_ID"
+
+#[[r2_buckets]]
+#binding = "r2"
+#bucket_name = "cloud-mail-dev"
+
+#[ai]
+#binding = "ai"
+
+[assets]
+binding = "assets"
+directory = "./dist"
+not_found_handling = "single-page-application"
+run_worker_first = true
+
+#[[send_email]]
+#name = "email"
+
+[vars]
+ai_model = "@cf/google/gemma-7b-it-lora"
+analysis_cache = false
+orm_log = false
+domain = ["example.com"]
+admin = "admin@example.com"
+jwt_secret = "REPLACE_WITH_LONG_RANDOM_DEV_SECRET"
