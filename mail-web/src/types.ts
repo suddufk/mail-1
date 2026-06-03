@@ -38,6 +38,24 @@ export type Attachment = {
   [key: string]: any;
 };
 
+export type EmailTranslation = {
+  emailId: number;
+  targetLang: Lang;
+  sourceLang: 'zh' | 'en' | 'other';
+  subject?: string;
+  content?: string;
+  text?: string;
+  createTime?: string;
+  [key: string]: any;
+};
+
+export type EmailTranslationStatus = {
+  sourceLang: 'zh' | 'en' | 'other';
+  targetLang: Lang;
+  needsTranslation: boolean;
+  translation?: EmailTranslation | null;
+};
+
 export type Email = {
   emailId: number;
   accountId?: number;
@@ -47,6 +65,7 @@ export type Email = {
   toEmail?: string;
   recipient?: string;
   subject?: string;
+  sourceLang?: 'zh' | 'en' | 'other' | '';
   text?: string;
   content?: string;
   createTime?: string | number;

@@ -1,9 +1,9 @@
-import { Avatar, Button, ScrollShadow, Tooltip as HeroTooltip } from '@heroui/react';
-import { ArrowLeft, Download, Reply, Star, Trash2 } from 'lucide-react';
+import { Avatar, ScrollShadow, Tooltip as HeroTooltip } from '@heroui/react';
+import { ArrowLeft, Download, Languages, Loader2, Reply, Star, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { allEmailDelete } from '@/api/all-email';
-import { emailDelete, emailRead } from '@/api/email';
+import { emailDelete, emailRead, emailTranslate, emailTranslationStatus } from '@/api/email';
 import { starAdd, starCancel } from '@/api/star';
 import { hasPerm } from '@/lib/permissions';
 import {
@@ -17,9 +17,9 @@ import {
   getExtName,
   initials,
 } from '@/lib/utils';
-import { notifySuccess } from '@/lib/notify';
+import { notifyError, notifySuccess } from '@/lib/notify';
 import { useAppStore } from '@/store/app-store';
-import type { Email } from '@/types';
+import type { Email, EmailTranslation, EmailTranslationStatus } from '@/types';
 import ConfirmButton from '@/components/ConfirmButton';
 import ShadowHtml from '@/components/ShadowHtml';
 
@@ -38,11 +38,17 @@ export default function MessageDetail({
 }) {
   const { t } = useTranslation();
   const selected = useAppStore((state) => state.selectedEmail);
+  const lang = useAppStore((state) => state.lang);
   const selectEmail = useAppStore((state) => state.selectEmail);
   const setDeleteIds = useAppStore((state) => state.setDeleteIds);
   const setStarChanged = useAppStore((state) => state.setStarChanged);
   const openComposer = useAppStore((state) => state.openComposer);
   const [preview, setPreview] = useState<string | null>(null);
+  const [translationStatus, setTranslationStatus] = useState<EmailTranslationStatus | null>(null);
+  const [translation, setTranslation] = useState<EmailTranslation | null>(null);
+  const [checkingTranslation, setCheckingTranslation] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
 
   const attList = email?.attList || [];
   const recipients = useMemo(() => formatRecipients(email?.recipient), [email?.recipient]);
@@ -53,6 +59,34 @@ export default function MessageDetail({
       emailRead([email.emailId]).catch(() => null);
     }
   }, [email?.emailId]);
+
+  useEffect(() => {
+    let canceled = false;
+    setTranslationStatus(null);
+    setTranslation(null);
+    setShowTranslation(false);
+    setCheckingTranslation(false);
+
+    if (!email?.emailId) return;
+
+    setCheckingTranslation(true);
+    emailTranslationStatus(email.emailId, lang)
+      .then((status: EmailTranslationStatus) => {
+        if (canceled) return;
+        setTranslationStatus(status);
+        setTranslation(status.translation || null);
+      })
+      .catch((error: any) => {
+        if (!canceled && error?.message) notifyError(error.message);
+      })
+      .finally(() => {
+        if (!canceled) setCheckingTranslation(false);
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [email?.emailId, lang]);
 
   if (!email) {
     return (
@@ -81,6 +115,43 @@ export default function MessageDetail({
     notifySuccess(t('delSuccessMsg'));
     onBack?.();
   }
+
+  async function toggleTranslation() {
+    if (!email || translating) return;
+    if (showTranslation) {
+      setShowTranslation(false);
+      return;
+    }
+    if (translation) {
+      setShowTranslation(true);
+      return;
+    }
+
+    setTranslating(true);
+    try {
+      const data = (await emailTranslate(email.emailId, lang)) as EmailTranslation;
+      setTranslation(data);
+      setTranslationStatus((current) => current ? { ...current, translation: data } : current);
+      setShowTranslation(true);
+    } catch (error: any) {
+      notifyError(error?.message || t('translationFailed'));
+    } finally {
+      setTranslating(false);
+    }
+  }
+
+  const showTranslateButton = !checkingTranslation && !!translationStatus?.needsTranslation;
+  const translationTooltip = translating
+    ? t('translating')
+    : showTranslation
+      ? t('showOriginal')
+      : translation
+        ? t('showTranslation')
+        : t('translate');
+  const displayedTranslation = showTranslation && translation ? translation : null;
+  const displaySubject = displayedTranslation ? displayedTranslation.subject || t('subject') : email.subject || t('subject');
+  const displayContent = displayedTranslation ? displayedTranslation.content || '' : email.content || '';
+  const displayText = displayedTranslation ? displayedTranslation.text || '' : email.text || '';
 
   return (
     <article className="surface-card flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[24px]">
@@ -112,12 +183,23 @@ export default function MessageDetail({
               </button>
             </Tooltip>
           ) : null}
+          {showTranslateButton ? (
+            <Tooltip content={translationTooltip}>
+              <button className="icon-button" disabled={translating} onClick={toggleTranslation} type="button">
+                {translating ? (
+                  <Loader2 className="size-5 animate-spin" />
+                ) : (
+                  <Languages className={`size-5 ${showTranslation ? 'text-blue-600' : ''}`} />
+                )}
+              </button>
+            </Tooltip>
+          ) : null}
         </div>
         <div className="text-sm text-muted">1 of 1</div>
       </header>
 
       <ScrollShadow className="min-h-0 flex-1 overflow-x-hidden px-7 py-7" offset={12} size={48}>
-        <h1 className="mb-9 text-[28px] font-semibold leading-tight">{email.subject || t('subject')}</h1>
+        <h1 className="mb-9 text-[28px] font-semibold leading-tight">{displaySubject}</h1>
         <div className="mb-9 flex items-start justify-between gap-5">
           <div className="flex min-w-0 items-start gap-4">
             <Avatar className="mail-avatar size-14 shrink-0" style={{ background: colorFor(email.sendEmail || email.name) }}>
@@ -147,10 +229,10 @@ export default function MessageDetail({
         </div>
 
         <div className="max-w-[980px] text-[17px] leading-8">
-          {email.content ? (
-            <ShadowHtml html={formatMailContent(email.content)} />
+          {displayContent ? (
+            <ShadowHtml html={formatMailContent(displayContent)} />
           ) : (
-            <pre className="whitespace-pre-wrap font-inherit">{email.text}</pre>
+            <pre className="whitespace-pre-wrap font-inherit">{displayText}</pre>
           )}
         </div>
 

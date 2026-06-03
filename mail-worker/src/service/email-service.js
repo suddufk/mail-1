@@ -22,6 +22,46 @@ import domainUtils from '../utils/domain-uitls';
 import account from "../entity/account";
 import { att } from '../entity/att';
 import telegramService from './telegram-service';
+import aiService from './ai-service';
+import emailTranslationService from './email-translation-service';
+
+function normalizeTargetLang(value) {
+	const lang = String(value || '').toLowerCase();
+	return lang.startsWith('zh') ? 'zh' : 'en';
+}
+
+function normalizeSourceLang(value) {
+	const lang = String(value || '').toLowerCase();
+	if (lang === 'zh' || lang === 'en' || lang === 'other') return lang;
+	return '';
+}
+
+function hasTranslatableContent(emailRow) {
+	return !!((emailRow.subject || '').trim() || (emailRow.content || '').trim() || (emailRow.text || '').trim());
+}
+
+function needsTranslation(sourceLang, targetLang, emailRow) {
+	if (!hasTranslatableContent(emailRow)) {
+		return false;
+	}
+	return sourceLang === 'other' || (!!sourceLang && sourceLang !== targetLang);
+}
+
+function isUsableTranslation(emailRow, translation, targetLang, sourceLang) {
+	if (!translation) {
+		return false;
+	}
+
+	if (!needsTranslation(sourceLang, targetLang, emailRow)) {
+		return true;
+	}
+
+	return aiService.isTranslationUsable(emailRow, translation, targetLang);
+}
+
+function isAdmin(c, currentUser) {
+	return currentUser?.email === c.env.admin;
+}
 
 const emailService = {
 
@@ -698,6 +738,99 @@ const emailService = {
 			and(eq(email.emailId, emailId),
 				eq(email.isDel, isDel.NORMAL)))
 			.get();
+	},
+
+	async selectByIdForTranslation(c, emailId, currentUser) {
+		emailId = Number(emailId);
+		if (!emailId) {
+			throw new BizError(t('emailNotFound'));
+		}
+
+		const emailRow = await orm(c).select().from(email).where(eq(email.emailId, emailId)).get();
+
+		if (!emailRow) {
+			throw new BizError(t('emailNotFound'));
+		}
+
+		if (!isAdmin(c, currentUser) && emailRow.userId !== currentUser?.userId) {
+			throw new BizError(t('unauthorized'), 403);
+		}
+
+		return emailRow;
+	},
+
+	async detectSourceLang(c, emailRow) {
+		if (!hasTranslatableContent(emailRow)) {
+			return 'other';
+		}
+
+		const sourceLang = normalizeSourceLang(await aiService.detectEmailLanguage(c, emailRow)) || 'other';
+		if (sourceLang !== normalizeSourceLang(emailRow.sourceLang)) {
+			emailRow.sourceLang = sourceLang;
+			await orm(c).update(email).set({ sourceLang }).where(eq(email.emailId, emailRow.emailId)).run();
+		}
+
+		return sourceLang;
+	},
+
+	async translationStatus(c, params, currentUser) {
+		const targetLang = normalizeTargetLang(params.targetLang || c.req.header('accept-language'));
+		const emailRow = await this.selectByIdForTranslation(c, params.emailId, currentUser);
+		let cached = await emailTranslationService.select(c, emailRow.emailId, targetLang);
+		const sourceLang = await this.detectSourceLang(c, emailRow);
+
+		if (cached && !isUsableTranslation(emailRow, cached, targetLang, sourceLang)) {
+			console.warn('邮件翻译缓存无效，已清理: ', { emailId: emailRow.emailId, targetLang });
+			await emailTranslationService.remove(c, emailRow.emailId, targetLang);
+			cached = null;
+		}
+
+		return {
+			sourceLang,
+			targetLang,
+			needsTranslation: needsTranslation(sourceLang, targetLang, emailRow),
+			translation: cached || null
+		};
+	},
+
+	async translate(c, params, currentUser) {
+		const targetLang = normalizeTargetLang(params.targetLang || c.req.header('accept-language'));
+		const emailRow = await this.selectByIdForTranslation(c, params.emailId, currentUser);
+		let cached = await emailTranslationService.select(c, emailRow.emailId, targetLang);
+		const sourceLang = await this.detectSourceLang(c, emailRow);
+
+		if (cached && isUsableTranslation(emailRow, cached, targetLang, sourceLang)) {
+			return cached;
+		}
+
+		if (cached) {
+			console.warn('邮件翻译缓存无效，重新生成: ', { emailId: emailRow.emailId, targetLang });
+			await emailTranslationService.remove(c, emailRow.emailId, targetLang);
+			cached = null;
+		}
+
+		if (!needsTranslation(sourceLang, targetLang, emailRow)) {
+			return {
+				emailId: emailRow.emailId,
+				targetLang,
+				sourceLang,
+				subject: emailRow.subject || '',
+				content: emailRow.content || '',
+				text: emailRow.text || ''
+			};
+		}
+
+		const translated = await aiService.translateEmail(c, emailRow, targetLang);
+		if (!isUsableTranslation(emailRow, translated, targetLang, sourceLang)) {
+			throw new BizError(t('translationFailed'), 502);
+		}
+
+		return await emailTranslationService.save(c, {
+			emailId: emailRow.emailId,
+			targetLang,
+			sourceLang,
+			...translated
+		});
 	},
 
 	async latest(c, params, userId) {

@@ -161,15 +161,92 @@ select {
   color: var(--foreground);
 }
 
-.settings-tabs .tabs__list {
-  width: max-content;
-  min-width: 248px;
+.settings-tab-list {
+  display: inline-flex;
+  max-width: 100%;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--surface-secondary);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
-.settings-tabs .tabs__tab {
+.settings-page {
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-detail-grid {
+  display: grid;
+  width: 100%;
+  max-width: 1180px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 20px;
+  align-items: start;
+}
+
+.settings-danger-card {
+  position: sticky;
+  top: 88px;
+}
+
+.settings-mail-panel {
+  max-width: 960px;
+}
+
+.settings-tab-button {
   min-width: 112px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in oklch, var(--foreground) 62%, transparent);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 12px 24px;
+  transition: background 140ms ease, box-shadow 140ms ease, color 140ms ease;
   white-space: nowrap;
   word-break: keep-all;
+}
+
+.settings-tab-button[data-active="true"] {
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow:
+    0 4px 12px rgb(0 0 0 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.settings-tab-button:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1100px) {
+  .settings-detail-grid {
+    max-width: 900px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-danger-card {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-tab-list {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 18px;
+  }
+
+  .settings-tab-button {
+    min-width: 0;
+    padding-inline: 14px;
+  }
 }
 
 .account-select,
@@ -395,6 +472,15 @@ select {
 @media (max-width: 1023px) {
   .mail-shell {
     grid-template-columns: minmax(300px, 430px) minmax(380px, 1fr);
+  }
+
+  .mail-shell.mail-shell--workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mail-shell.mail-shell--workspace > main {
+    grid-column: 1 / -1;
+    min-width: 0;
   }
 
   .icon-button.sidebar-open-button,

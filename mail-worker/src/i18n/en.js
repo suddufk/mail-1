@@ -66,6 +66,9 @@ const en = {
 	notAdmin: 'The entered email is not an administrator email',
 	emailExistDatabase: 'Email already exists in the database',
 	notConfigOss: 'Object storage not configured',
+	emailNotFound: 'Email does not exist',
+	aiNotConfigured: 'Workers AI is not configured',
+	translationFailed: 'Translation failed. Please try again later',
 	perms: {
 		"邮件": "Emails",
 		"邮件发送": "Send Email",

@@ -23,7 +23,7 @@ export default function WorkspaceLayout({
     >
       <div className="sidebar-backdrop" data-open={sidebarOpen} onClick={() => setSidebarOpen(false)} />
       <AppSidebar />
-      <main className="h-screen overflow-auto bg-background">
+      <main className="h-screen min-w-0 overflow-auto bg-background">
         <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between border-b border-separator bg-background/90 px-6 backdrop-blur">
           <div className="flex min-w-0 items-center gap-3">
             <button className="icon-button sidebar-open-button" onClick={() => setSidebarOpen(true)} type="button">
@@ -33,7 +33,7 @@ export default function WorkspaceLayout({
           </div>
           {actions}
         </header>
-        <div className="p-6">{children}</div>
+        <div className="min-w-0 p-6">{children}</div>
       </main>
       <Composer />
     </div>

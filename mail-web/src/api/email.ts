@@ -1,4 +1,5 @@
 import http from '@/lib/http';
+import type { Lang } from '@/types';
 
 export function emailList(
   accountId: number,
@@ -27,6 +28,21 @@ export function emailLatest(emailId: number, accountId: number, allReceive?: num
 
 export function emailRead(emailIds: number[] | number) {
   return http.put('/email/read', { emailIds });
+}
+
+export function emailTranslationStatus(emailId: number, targetLang: Lang) {
+  return http.get('/email/translation/status', {
+    params: { emailId, targetLang },
+    noMsg: true,
+    timeout: 35 * 1000,
+  } as any);
+}
+
+export function emailTranslate(emailId: number, targetLang: Lang) {
+  return http.post('/email/translate', { emailId, targetLang }, {
+    noMsg: true,
+    timeout: 180 * 1000,
+  } as any);
 }
 
 export function emailSend(form: any, progress?: (e: ProgressEvent) => void) {

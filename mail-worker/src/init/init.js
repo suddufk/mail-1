@@ -30,8 +30,35 @@ const dbInit = {
 		await this.v2_9DB(c);
 		await this.v3_0DB(c);
 		await this.v3_1DB(c);
+		await this.v3_2DB(c);
 		await settingService.refresh(c);
 		return c.text('success');
+	},
+
+	async v3_2DB(c) {
+		try {
+			await c.env.db.prepare(`ALTER TABLE email ADD COLUMN source_lang TEXT NOT NULL DEFAULT '';`).run();
+		} catch (e) {
+			console.warn(`跳过字段：${e.message}`);
+		}
+
+		await c.env.db.prepare(`
+			CREATE TABLE IF NOT EXISTS email_translation (
+				translation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+				email_id INTEGER NOT NULL,
+				target_lang TEXT NOT NULL DEFAULT '',
+				source_lang TEXT NOT NULL DEFAULT '',
+				subject TEXT NOT NULL DEFAULT '',
+				content TEXT NOT NULL DEFAULT '',
+				text TEXT NOT NULL DEFAULT '',
+				create_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+			)
+		`).run();
+
+		await c.env.db.prepare(`
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_email_translation_email_lang
+			ON email_translation(email_id, target_lang)
+		`).run();
 	},
 
 	async v3_1DB(c) {
