@@ -1,5 +1,6 @@
 import { Button, Spinner, Table } from '@heroui/react';
 import {
+  Copy,
   Edit3,
   History,
   Mail,
@@ -310,6 +311,17 @@ export default function ManagementPage({ resource }: { resource: Resource }) {
     setHistoryRows(asList(data));
   }
 
+  async function copyInvite(row: any) {
+    const url = `${window.location.origin}/login?inviteCode=${encodeURIComponent(row.code || '')}`;
+    const text = t('inviteCopyText', { code: row.code, url });
+    try {
+      await navigator.clipboard.writeText(text);
+      notifySuccess(t('copySuccessMsg'));
+    } catch {
+      notifyError(t('copyFailMsg'));
+    }
+  }
+
   function renderValue(row: any, column: string) {
     if (column === 'status') {
       if (row.isDel === 1) return t('deleted');
@@ -419,9 +431,14 @@ export default function ManagementPage({ resource }: { resource: Resource }) {
                               </>
                             ) : null}
                             {resource === 'regKeys' ? (
-                              <Button isIconOnly size="sm" variant="tertiary" onPress={() => loadRegKeyHistory(row)}>
-                                <History className="size-4" />
-                              </Button>
+                              <>
+                                <Button aria-label={t('copyInviteLink')} isIconOnly size="sm" variant="tertiary" onPress={() => copyInvite(row)}>
+                                  <Copy className="size-4" />
+                                </Button>
+                                <Button aria-label={t('history')} isIconOnly size="sm" variant="tertiary" onPress={() => loadRegKeyHistory(row)}>
+                                  <History className="size-4" />
+                                </Button>
+                              </>
                             ) : null}
                             <ConfirmButton
                               description={t('deleteRowConfirmDescription', { name: row.email || row.name || row.code || row.roleId })}
@@ -479,7 +496,7 @@ export default function ManagementPage({ resource }: { resource: Resource }) {
                   onChange={(suffix) => setUserForm((form) => ({ ...form, suffix }))}
                   options={domainList.map((domain) => ({ label: domain, value: domain }))}
                   placeholder="@"
-                  triggerClassName="h-full rounded-none border-0 bg-transparent px-2 text-sm shadow-none"
+                  triggerClassName="inline-domain-select-trigger h-full rounded-none border-0 bg-transparent px-2 text-sm shadow-none"
                   value={userForm.suffix}
                 />
               </div>

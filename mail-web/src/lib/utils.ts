@@ -107,14 +107,14 @@ export function initials(value?: string) {
 
 export function colorFor(value?: string) {
   const colors = [
-    'from-emerald-200 to-teal-500',
-    'from-blue-200 to-indigo-500',
-    'from-amber-200 to-orange-500',
-    'from-zinc-200 to-zinc-900',
-    'from-cyan-200 to-blue-500',
-    'from-green-200 to-emerald-500',
-    'from-violet-200 to-fuchsia-500',
-    'from-rose-100 to-red-400',
+    'linear-gradient(135deg, #bbf7d0 0%, #34d399 45%, #059669 100%)',
+    'linear-gradient(135deg, #bfdbfe 0%, #60a5fa 45%, #2563eb 100%)',
+    'linear-gradient(135deg, #fde68a 0%, #fb923c 48%, #ef4444 100%)',
+    'linear-gradient(135deg, #e5e7eb 0%, #71717a 45%, #111827 100%)',
+    'linear-gradient(135deg, #ccfbf1 0%, #22d3ee 46%, #3b82f6 100%)',
+    'linear-gradient(135deg, #dcfce7 0%, #4ade80 45%, #10b981 100%)',
+    'linear-gradient(135deg, #e9d5ff 0%, #a78bfa 46%, #4f46e5 100%)',
+    'linear-gradient(135deg, #ffe4e6 0%, #fb7185 46%, #dc2626 100%)',
   ];
   const code = [...(value || '')].reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return colors[code % colors.length];

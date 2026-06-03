@@ -168,6 +168,29 @@ select {
   margin: 0;
 }
 
+.inline-domain-select-trigger {
+  display: flex;
+  align-items: center;
+  min-height: 100%;
+  padding-inline: 12px 8px;
+  gap: 6px;
+}
+
+.inline-domain-select-trigger .select__value {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  line-height: 1;
+}
+
+.inline-domain-select-trigger .select__indicator {
+  position: static;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
 .sidebar-account-avatar .avatar__fallback {
   background: transparent;
 }
@@ -228,19 +251,29 @@ select {
   min-height: 96px;
   padding: 14px;
   border: 0;
-  border-radius: 16px;
+  border-radius: 18px;
   background: transparent;
   color: inherit;
   cursor: pointer;
-  transition: background 120ms ease, box-shadow 120ms ease;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
 }
 
 .mail-row:hover,
 .mail-row[data-active="true"] {
   background: var(--surface);
+  transform: translateY(-1px);
   box-shadow:
-    0 3px 12px rgb(0 0 0 / 0.05),
+    0 8px 22px rgb(0 0 0 / 0.08),
     0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+.mail-avatar .avatar__fallback {
+  background: transparent;
+  color: color-mix(in oklch, var(--foreground) 82%, transparent);
+  font-weight: 600;
 }
 
 .line-clamp-1 {

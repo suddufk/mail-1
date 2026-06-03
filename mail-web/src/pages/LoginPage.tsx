@@ -35,6 +35,13 @@ export default function LoginPage() {
   }, [domainList, suffix]);
 
   useEffect(() => {
+    const inviteCode = searchParams.get('inviteCode') || searchParams.get('regKey');
+    if (!inviteCode) return;
+    setMode('register');
+    setCode(inviteCode);
+  }, [searchParams]);
+
+  useEffect(() => {
     const oauthCode = searchParams.get('code');
     if (!oauthCode) return;
     setLoading(true);
@@ -147,7 +154,7 @@ export default function LoginPage() {
                 onChange={setSuffix}
                 options={domainList.map((domain) => ({ label: domain, value: domain }))}
                 placeholder="@"
-                triggerClassName="h-full rounded-none border-0 bg-transparent px-2 text-sm shadow-none"
+                triggerClassName="inline-domain-select-trigger h-full rounded-none border-0 bg-transparent px-2 text-sm shadow-none"
                 value={suffix}
               />
             ) : null}

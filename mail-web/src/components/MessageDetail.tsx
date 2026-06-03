@@ -120,7 +120,7 @@ export default function MessageDetail({
         <h1 className="mb-9 text-[28px] font-semibold leading-tight">{email.subject || t('subject')}</h1>
         <div className="mb-9 flex items-start justify-between gap-5">
           <div className="flex min-w-0 items-start gap-4">
-            <Avatar className={`size-14 shrink-0 bg-gradient-to-br ${colorFor(email.sendEmail || email.name)}`}>
+            <Avatar className="mail-avatar size-14 shrink-0" style={{ background: colorFor(email.sendEmail || email.name) }}>
               <Avatar.Fallback>{initials(email.name || email.sendEmail)}</Avatar.Fallback>
             </Avatar>
             <div className="min-w-0">

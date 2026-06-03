@@ -362,7 +362,7 @@ export default function MessageList({ kind, onOpenDetail }: Props) {
                   }}
                 >
                   <button className="mail-row w-full text-left" data-active={selectedEmail?.emailId === email.emailId} onClick={() => open(email)} type="button">
-                    <Avatar className={`size-14 bg-gradient-to-br ${colorFor(email.sendEmail || email.name)}`}>
+                    <Avatar className="mail-avatar size-14" style={{ background: colorFor(email.sendEmail || email.name) }}>
                       <Avatar.Fallback>{initials(email.name || email.sendEmail)}</Avatar.Fallback>
                     </Avatar>
                     <div className="min-w-0">
