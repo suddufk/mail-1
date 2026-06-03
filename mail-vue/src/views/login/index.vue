@@ -12,21 +12,7 @@
     <!-- Left branding panel — desktop only -->
     <div class="brand-panel">
       <div class="brand-content">
-        <svg class="brand-compass" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <g transform="translate(50,50)">
-            <line x1="0" y1="-42" x2="0" y2="-25" stroke="#e8b520" stroke-width="4" stroke-linecap="round"/>
-            <line x1="0" y1="25" x2="0" y2="42" stroke="#e8b520" stroke-width="4" stroke-linecap="round"/>
-            <line x1="-42" y1="0" x2="-25" y2="0" stroke="#e8b520" stroke-width="4" stroke-linecap="round"/>
-            <line x1="25" y1="0" x2="42" y2="0" stroke="#e8b520" stroke-width="4" stroke-linecap="round"/>
-            <line x1="-21" y1="-21" x2="-12" y2="-12" stroke="#e8b520" stroke-width="2.5" stroke-linecap="round" opacity="0.65"/>
-            <line x1="12" y1="-12" x2="21" y2="-21" stroke="#e8b520" stroke-width="2.5" stroke-linecap="round" opacity="0.65"/>
-            <line x1="12" y1="12" x2="21" y2="21" stroke="#e8b520" stroke-width="2.5" stroke-linecap="round" opacity="0.65"/>
-            <line x1="-21" y1="21" x2="-12" y2="12" stroke="#e8b520" stroke-width="2.5" stroke-linecap="round" opacity="0.65"/>
-            <circle r="18" stroke="#e8b520" stroke-width="2.5"/>
-            <circle r="13" fill="#c8970a"/>
-            <circle r="5.5" fill="#fff8e1"/>
-          </g>
-        </svg>
+        <img class="brand-compass" src="https://panorama-sg.com/favicon.png" alt="Panorama Scholarly Group" />
         <div class="brand-org">Panorama Scholarly Group</div>
         <div class="brand-product">Internal Mail System</div>
         <div class="brand-rule"></div>
@@ -41,29 +27,7 @@
     <div class="form-wrapper">
       <div class="container">
         <div class="form-badge">
-          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <rect width="40" height="40" rx="10" fill="url(#bdg)"/>
-            <defs>
-              <linearGradient id="bdg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#c8970a"/>
-                <stop offset="55%" stop-color="#e8b520"/>
-                <stop offset="100%" stop-color="#c8970a"/>
-              </linearGradient>
-            </defs>
-            <g transform="translate(20,20)">
-              <line x1="0" y1="-11" x2="0" y2="-6.5" stroke="#0c1c3a" stroke-width="2" stroke-linecap="round"/>
-              <line x1="0" y1="6.5" x2="0" y2="11" stroke="#0c1c3a" stroke-width="2" stroke-linecap="round"/>
-              <line x1="-11" y1="0" x2="-6.5" y2="0" stroke="#0c1c3a" stroke-width="2" stroke-linecap="round"/>
-              <line x1="6.5" y1="0" x2="11" y2="0" stroke="#0c1c3a" stroke-width="2" stroke-linecap="round"/>
-              <line x1="-5.5" y1="-5.5" x2="-3" y2="-3" stroke="#0c1c3a" stroke-width="1.3" stroke-linecap="round" opacity="0.5"/>
-              <line x1="3" y1="-3" x2="5.5" y2="-5.5" stroke="#0c1c3a" stroke-width="1.3" stroke-linecap="round" opacity="0.5"/>
-              <line x1="3" y1="3" x2="5.5" y2="5.5" stroke="#0c1c3a" stroke-width="1.3" stroke-linecap="round" opacity="0.5"/>
-              <line x1="-5.5" y1="5.5" x2="-3" y2="3" stroke="#0c1c3a" stroke-width="1.3" stroke-linecap="round" opacity="0.5"/>
-              <circle r="4.5" stroke="#0c1c3a" stroke-width="1.3"/>
-              <circle r="3" fill="#0c1c3a"/>
-              <circle r="1.3" fill="#e8b520"/>
-            </g>
-          </svg>
+          <img src="https://panorama-sg.com/favicon.png" alt="Panorama Scholarly Group" />
         </div>
         <span class="form-title">{{ settingStore.settings.title }}</span>
         <span class="form-desc" v-if="show === 'login'">{{ $t('loginTitle') }}</span>
@@ -955,7 +919,8 @@ function submitRegister() {
     width: 96px;
     height: 96px;
     margin-bottom: 28px;
-    filter: drop-shadow(0 0 28px rgba(232, 181, 32, 0.45));
+    border-radius: 22px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08);
   }
 
   .brand-org {
@@ -1013,15 +978,16 @@ function submitRegister() {
   }
 }
 
-/* ── Form gold badge ── */
+/* ── Form logo badge ── */
 .form-badge {
   margin-bottom: 18px;
 
-  svg {
-    width: 50px;
-    height: 50px;
+  img {
+    width: 52px;
+    height: 52px;
     display: block;
-    filter: drop-shadow(0 4px 10px rgba(200, 151, 10, 0.4));
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
   }
 }
 

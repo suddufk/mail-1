@@ -7,8 +7,7 @@
             <Icon icon="hugeicons:quill-write-01" width="28" height="28"/>
           </span>
           <span class="sender">{{ $t('sender') }}:</span>
-          <span class="sender-name">{{ form.name }}</span>
-          <span class="send-email"><{{ form.sendEmail }}></span>
+          <span class="sender-name">{{ form.name || form.sendEmail.split('@')[0] }}</span>
         </div>
         <div @click="close" style="cursor: pointer;">
           <Icon icon="material-symbols-light:close-rounded" width="22" height="22"/>
@@ -673,13 +672,6 @@ function close() {
         font-weight: bold;
       }
 
-      .send-email {
-        color: #999896;
-        margin-left: 5px;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        overflow: hidden;
-      }
 
 
       div {
