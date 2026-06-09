@@ -6,6 +6,14 @@ import { cors } from 'hono/cors';
 
 app.use('*', cors());
 
+// Security headers
+app.use('*', async (c, next) => {
+	await next();
+	c.res.headers.set('X-Content-Type-Options', 'nosniff');
+	c.res.headers.set('X-Frame-Options', 'DENY');
+	c.res.headers.set('X-XSS-Protection', '1; mode=block');
+});
+
 app.onError((err, c) => {
 	if (err.name === 'BizError') {
 		console.log(err.message);

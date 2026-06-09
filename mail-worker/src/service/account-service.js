@@ -264,6 +264,19 @@ const accountService = {
 		let mainSort = mainAccountRow.sort === 0 ? 2 : mainAccountRow.sort + 1;
 		await orm(c).update(account).set({ sort: mainSort }).where(eq(account.email, userRow.email )).run();
 		await orm(c).update(account).set({ sort: mainSort - 1 }).where(and(eq(account.accountId, accountId),eq(account.userId,userId))).run();
+	},
+
+	async setForward(c, params, userId) {
+		const { accountId, forwardEmail } = params;
+		const accountRow = await this.selectById(c, accountId);
+		if (!accountRow || accountRow.userId !== userId) {
+			throw new BizError(t('noUserAccount'));
+		}
+		if (forwardEmail && !verifyUtils.isEmail(forwardEmail)) {
+			throw new BizError(t('notEmail'));
+		}
+		await orm(c).update(account).set({ forwardEmail: forwardEmail || '' })
+			.where(and(eq(account.accountId, accountId), eq(account.userId, userId))).run();
 	}
 };
 
