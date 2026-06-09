@@ -199,6 +199,19 @@
                   </el-button>
                 </div>
               </div>
+      <div class="setting-item" v-if="!setting.hasCfEmail">
+        <div><span>{{ $t('genericSmtpConfig') }}</span></div>
+                <div>
+                  <el-button class="opt-button" style="margin-top: 0" @click="openSmtpConfigList" size="small"
+                             type="primary">
+                    <Icon icon="ic:round-list" width="18" height="18"/>
+                  </el-button>
+                  <el-button class="opt-button" style="margin-top: 0" @click="openSmtpConfigForm" size="small"
+                             type="primary">
+                    <Icon icon="material-symbols:add-rounded" width="16" height="16"/>
+                  </el-button>
+                </div>
+              </div>
               <div class="setting-item">
                 <div><span>{{ $t('blackList') }}</span></div>
                 <div>
@@ -467,6 +480,23 @@
           <el-button type="primary" :loading="settingLoading" @click="saveResendToken">{{ $t('save') }}</el-button>
         </form>
       </el-dialog>
+      <el-dialog v-model="smtpConfigFormShow" :title="$t('genericSmtpConfig')" width="380" @closed="cleanSmtpConfigForm">
+        <form>
+          <el-select style="margin-bottom: 12px" v-model="smtpConfigForm.domain" placeholder="Select">
+            <el-option
+                v-for="item in settingStore.domainList"
+                :key="item"
+                :label="item"
+                :value="item"
+            />
+          </el-select>
+          <el-input style="margin-bottom: 12px" type="text" placeholder="SMTP Host" v-model="smtpConfigForm.host"/>
+          <el-input style="margin-bottom: 12px" type="text" placeholder="Port" v-model="smtpConfigForm.port"/>
+          <el-input style="margin-bottom: 12px" type="text" placeholder="Username" v-model="smtpConfigForm.username"/>
+          <el-input style="margin-bottom: 12px" type="password" placeholder="Password" v-model="smtpConfigForm.password"/>
+          <el-button type="primary" :loading="settingLoading" @click="saveSmtpConfig">{{ $t('save') }}</el-button>
+        </form>
+      </el-dialog>
       <el-dialog v-model="r2DomainShow" :title="$t('addOsDomain')" width="340"
                  @closed="r2DomainInput = setting.r2Domain">
         <form>
@@ -639,6 +669,14 @@
                            :show-overflow-tooltip="true"/>
           <el-table-column :width="tokenColumnWidth" property="value" label="Token" fixed="right"
                            :show-overflow-tooltip="true"/>
+        </el-table>
+      </el-dialog>
+      <el-dialog class="resend-table" v-model="showSmtpConfigList" :title="$t('genericSmtpConfigList')">
+        <el-table :data="smtpConfigList">
+          <el-table-column :min-width="emailColumnWidth" property="key" :label="$t('domain')"
+                           :show-overflow-tooltip="true"/>
+          <el-table-column property="host" label="Host" :show-overflow-tooltip="true"/>
+          <el-table-column property="port" label="Port" width="70"/>
         </el-table>
       </el-dialog>
       <el-dialog v-model="regVerifyCountShow" :title="$t('rulesVerifyTitle',{count: regVerifyCount})"
@@ -844,6 +882,7 @@ const accountStore = useAccountStore();
 const userStore = useUserStore();
 const editTitleShow = ref(false)
 const resendTokenFormShow = ref(false)
+const smtpConfigFormShow = ref(false)
 const blackFormShow = ref(false)
 const aiCodeFilterShow = ref(false)
 const r2DomainShow = ref(false)
@@ -854,6 +893,7 @@ const thirdEmailShow = ref(false)
 const forwardRulesShow = ref(false)
 const emailPrefixShow = ref(false)
 const showResendList = ref(false)
+const showSmtpConfigList = ref(false)
 const settingStore = useSettingStore();
 const uiStore = useUiStore();
 const {settings: setting} = storeToRefs(settingStore);
@@ -877,6 +917,13 @@ const regVerifyCountShow = ref(false)
 const resendTokenForm = reactive({
   domain: '',
   token: '',
+})
+const smtpConfigForm = reactive({
+  domain: '',
+  host: '',
+  port: '',
+  username: '',
+  password: ''
 })
 const turnstileForm = reactive({
   siteKey: '',
@@ -953,6 +1000,7 @@ function getSettings() {
     setting.value = settingData
     settingStore.domainList = settingData.domainList;
     resendTokenForm.domain = setting.value.domainList[0]
+    smtpConfigForm.domain = setting.value.domainList[0]
     loginOpacity.value = setting.value.loginOpacity
     loginDarkenFactor.value = normalizeFactor(setting.value.loginDarkenFactor)
     minEmailPrefix.value = setting.value.minEmailPrefix
@@ -999,7 +1047,7 @@ function resetAddS3Form() {
 
 const resendList = computed(() => {
 
-  let list = Object.keys(setting.value.resendTokens).map(key => {
+  let list = Object.keys(setting.value.resendTokens || {}).map(key => {
     return {
       key: key,
       value: setting.value.resendTokens[key]
@@ -1013,6 +1061,31 @@ const resendList = computed(() => {
 
     const value = list.reduce((a, b) => compareByLengthAndUpperCase(a, b, 'value')).value;
     tokenColumnWidth.value = getTextWidth(value) + 30;
+
+  }
+
+  return list;
+});
+
+const smtpConfigList = computed(() => {
+
+  let list = Object.keys(setting.value.smtpConfigs || {}).map(key => {
+    let parsed = {};
+    try {
+      if (setting.value.smtpConfigs[key]) parsed = JSON.parse(setting.value.smtpConfigs[key]);
+    } catch(e) {}
+    return {
+      key: key,
+      value: setting.value.smtpConfigs[key],
+      host: parsed.host || '',
+      port: parsed.port || ''
+    };
+  })
+
+  if (list.length > 0) {
+
+    const key = list.reduce((a, b) => compareByLengthAndUpperCase(a, b, 'key')).key;
+    emailColumnWidth.value = getTextWidth(key) + 30;
 
   }
 
@@ -1083,6 +1156,10 @@ function openNoticePopupSetting() {
 
 function openResendList() {
   showResendList.value = true
+}
+
+function openSmtpConfigList() {
+  showSmtpConfigList.value = true
 }
 
 function resetNoticeForm() {
@@ -1426,6 +1503,10 @@ function openResendForm() {
   resendTokenFormShow.value = true
 }
 
+function openSmtpConfigForm() {
+  smtpConfigFormShow.value = true
+}
+
 function openBlackListForm() {
   blackFormShow.value = true
 }
@@ -1443,9 +1524,28 @@ function saveResendToken() {
   editSetting(settingForm)
 }
 
+function saveSmtpConfig() {
+  const settingForm = {
+    smtpConfigs: {}
+  }
+  const domain = smtpConfigForm.domain.slice(1)
+  if (smtpConfigForm.host && smtpConfigForm.port) {
+    settingForm.smtpConfigs[domain] = JSON.stringify({
+      host: smtpConfigForm.host,
+      port: smtpConfigForm.port,
+      username: smtpConfigForm.username || '',
+      password: smtpConfigForm.password || ''
+    })
+  } else {
+    settingForm.smtpConfigs[domain] = ''
+  }
+  editSetting(settingForm)
+}
+
 function backupSetting() {
   const settingForm = {...setting.value}
   delete settingForm.resendTokens
+  delete settingForm.smtpConfigs
   delete settingForm.siteKey
   delete settingForm.secretKey
   backup = JSON.stringify(setting.value)
@@ -1453,6 +1553,13 @@ function backupSetting() {
 
 function cleanResendTokenForm() {
   resendTokenForm.token = ''
+}
+
+function cleanSmtpConfigForm() {
+  smtpConfigForm.host = ''
+  smtpConfigForm.port = ''
+  smtpConfigForm.username = ''
+  smtpConfigForm.password = ''
 }
 
 function beforeChange() {
@@ -1470,6 +1577,7 @@ function change(e) {
   delete settingForm.s3SecretKey
   delete settingForm.tgBotToken
   delete settingForm.resendTokens
+  delete settingForm.smtpConfigs
   editSetting(settingForm, false)
 }
 
@@ -1510,6 +1618,7 @@ function editSetting(settingForm, refreshStatus = true) {
     editTitleShow.value = false
     r2DomainShow.value = false
     resendTokenFormShow.value = false
+    smtpConfigFormShow.value = false
     turnstileShow.value = false
     tgSettingShow.value = false
     thirdEmailShow.value = false
@@ -1520,6 +1629,7 @@ function editSetting(settingForm, refreshStatus = true) {
     addS3Show.value = false
     emailPrefixShow.value = false
     aiCodeFilterShow.value = false
+    showSmtpConfigList.value = false
   }).catch((e) => {
     loginOpacity.value = setting.value.loginOpacity
     loginDarkenFactor.value = normalizeFactor(setting.value.loginDarkenFactor)

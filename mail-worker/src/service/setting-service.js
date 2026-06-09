@@ -12,9 +12,20 @@ import userContext from '../security/user-context';
 
 const settingService = {
 
+	parseJsonObject(value) {
+		if (!value) return {};
+		if (typeof value === 'object') return value;
+		return JSON.parse(value);
+	},
+
+	maskSecret(value, visible = 12) {
+		return value ? `${value.slice(0, visible)}******` : value;
+	},
+
 	async refresh(c) {
 		const settingRow = await orm(c).select().from(setting).get();
-		settingRow.resendTokens = JSON.parse(settingRow.resendTokens);
+		settingRow.resendTokens = this.parseJsonObject(settingRow.resendTokens);
+		settingRow.smtpConfigs = this.parseJsonObject(settingRow.smtpConfigs);
 		c.set('setting', settingRow);
 		await c.env.kv.put(KvConst.SETTING, JSON.stringify(settingRow));
 	},
@@ -95,7 +106,14 @@ const settingService = {
 		settingRow.secretKey = settingRow.secretKey ? `${settingRow.secretKey.slice(0, 6)}******` : null;
 
 		Object.keys(settingRow.resendTokens).forEach(key => {
-			settingRow.resendTokens[key] = `${settingRow.resendTokens[key].slice(0, 12)}******`;
+			settingRow.resendTokens[key] = this.maskSecret(settingRow.resendTokens[key]);
+		});
+
+		settingRow.smtpConfigs = settingRow.smtpConfigs || {};
+		Object.keys(settingRow.smtpConfigs).forEach(key => {
+			const smtpConfig = this.parseJsonObject(settingRow.smtpConfigs[key]);
+			if (smtpConfig.password) smtpConfig.password = this.maskSecret(smtpConfig.password);
+			settingRow.smtpConfigs[key] = JSON.stringify(smtpConfig);
 		});
 
 		settingRow.s3AccessKey = settingRow.s3AccessKey ? `${settingRow.s3AccessKey.slice(0, 12)}******` : null;
@@ -131,6 +149,11 @@ const settingService = {
 			if (!resendTokens[domain]) delete resendTokens[domain];
 		});
 
+		let smtpConfigs = { ...(settingData.smtpConfigs || {}), ...params.smtpConfigs };
+		Object.keys(smtpConfigs).forEach(domain => {
+			if (!smtpConfigs[domain]) delete smtpConfigs[domain];
+		});
+
 		if (Array.isArray(params.emailPrefixFilter)) {
 			params.emailPrefixFilter = params.emailPrefixFilter + '';
 		}
@@ -145,6 +168,7 @@ const settingService = {
 		}
 
 		params.resendTokens = JSON.stringify(resendTokens);
+		params.smtpConfigs = JSON.stringify(smtpConfigs);
 		await orm(c).update(setting).set({ ...params }).returning().get();
 		await this.refresh(c);
 	},
