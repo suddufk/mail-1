@@ -9,6 +9,7 @@ import BizError from '../error/biz-error';
 import emailUtils from '../utils/email-utils';
 import fileUtils from '../utils/file-utils';
 import { Resend } from 'resend';
+import { connect } from 'cloudflare:sockets';
 import attService from './att-service';
 import { parseHTML } from 'linkedom';
 import userService from './user-service';
@@ -164,7 +165,7 @@ const emailService = {
 			attachments = [] //附件
 		} = params;
 
-		const { resendTokens, r2Domain, send, domainList } = await settingService.query(c);
+		const { resendTokens, smtpConfigs = {}, r2Domain, send, domainList } = await settingService.query(c);
 
 		let { imageDataList, html } = await attService.toImageUrlHtml(c, content);
 
@@ -231,10 +232,12 @@ const emailService = {
 
 		const domain = emailUtils.getDomain(accountRow.email);
 		const resendToken = resendTokens[domain];
+		const smtpConfig = smtpConfigs[domain];
 		const useCloudflareEmail = !!c.env.email;
+		const useGenericSmtp = !useCloudflareEmail && !!smtpConfig;
 
 		//如果接收方存在站外邮箱，又没有发信服务
-		if (!useCloudflareEmail && !resendToken && !allInternal) {
+		if (!useCloudflareEmail && !smtpConfig && !resendToken && !allInternal) {
 			throw new BizError(t('noSendProvider'));
 		}
 
@@ -260,11 +263,23 @@ const emailService = {
 
 		let sendResult = {};
 
-		//存在站外邮箱时，如果配置了 Cloudflare Email Service 就优先使用，否则使用 Resend
+		//存在站外邮箱时，优先使用 Cloudflare Email Service，其次 Generic SMTP，最后 Resend
 		if (!allInternal) {
 
 			if (useCloudflareEmail) {
 				sendResult = await this.sendByCloudflareEmail(c, {
+					name,
+					accountEmail: accountRow.email,
+					receiveEmail,
+					subject,
+					text,
+					html,
+					attachments: [...imageDataList, ...attachments],
+					sendType,
+					messageId: emailRow.messageId
+				});
+			} else if (useGenericSmtp) {
+				sendResult = await this.sendByGenericSmtp(smtpConfig, {
 					name,
 					accountEmail: accountRow.email,
 					receiveEmail,
@@ -431,6 +446,154 @@ const emailService = {
 		}
 
 		return await resend.emails.send(sendForm);
+	},
+
+	async sendByGenericSmtp(smtpConfig, params) {
+		const parsedToken = typeof smtpConfig === 'string' ? JSON.parse(smtpConfig) : smtpConfig;
+		const { host, port, username, password } = parsedToken;
+		const parsedPort = parseInt(port);
+		const isSmtps = parsedPort === 465;
+		const isStartTls = parsedPort === 587;
+
+		const buildMultipart = async () => {
+			const boundary = `----=_Part_${Math.random().toString(36).substring(2)}`;
+			let body = '';
+
+			body += `From: ${params.name} <${params.accountEmail}>\r\n`;
+			body += `To: ${params.receiveEmail.join(', ')}\r\n`;
+			body += `Subject: ${params.subject}\r\n`;
+			body += 'MIME-Version: 1.0\r\n';
+			
+			if (params.sendType === 'reply' && params.messageId) {
+				body += `In-Reply-To: ${params.messageId}\r\n`;
+				body += `References: ${params.messageId}\r\n`;
+			}
+
+			body += `Content-Type: multipart/mixed; boundary="${boundary}"\r\n\r\n`;
+
+			if (params.html || params.text) {
+				body += `--${boundary}\r\n`;
+				body += 'Content-Type: multipart/alternative; boundary="alt-' + boundary + '"\r\n\r\n';
+				
+				if (params.text) {
+					body += `--alt-${boundary}\r\n`;
+					body += 'Content-Type: text/plain; charset=utf-8\r\n\r\n';
+					body += `${params.text}\r\n\r\n`;
+				}
+				
+				if (params.html) {
+					body += `--alt-${boundary}\r\n`;
+					body += 'Content-Type: text/html; charset=utf-8\r\n\r\n';
+					body += `${params.html}\r\n\r\n`;
+				}
+				body += `--alt-${boundary}--\r\n\r\n`;
+			}
+
+			if (params.attachments && params.attachments.length > 0) {
+				for (const att of params.attachments) {
+					const base64Content = await this.toAttachmentBase64(att);
+					if (!base64Content) continue;
+					
+					body += `--${boundary}\r\n`;
+					const mimeType = att.contentType || att.mimeType || att.type || 'application/octet-stream';
+					const isInline = !!att.contentId;
+					
+					body += `Content-Type: ${mimeType}; name="${att.filename}"\r\n`;
+					body += 'Content-Transfer-Encoding: base64\r\n';
+					if (isInline) {
+						body += `Content-ID: ${att.contentId.startsWith('<') ? att.contentId : `<${att.contentId}>`}\r\n`;
+						body += `Content-Disposition: inline; filename="${att.filename}"\r\n\r\n`;
+					} else {
+						body += `Content-Disposition: attachment; filename="${att.filename}"\r\n\r\n`;
+					}
+					
+					const lines = base64Content.match(/.{1,76}/g) || [];
+					body += lines.join('\r\n') + '\r\n\r\n';
+				}
+			}
+
+			body += `--${boundary}--\r\n`;
+			return body;
+		};
+
+		let activeSocket = connect({
+			hostname: host,
+			port: parsedPort,
+		}, isSmtps ? { secureTransport: "on" } : (isStartTls ? { secureTransport: "starttls" } : undefined));
+
+		const readResponse = async () => {
+			const reader = activeSocket.readable.getReader();
+			const { value } = await reader.read();
+			reader.releaseLock();
+			const response = new TextDecoder().decode(value);
+			return response;
+		};
+
+		const writeCommand = async (cmd) => {
+			const writer = activeSocket.writable.getWriter();
+			await writer.write(new TextEncoder().encode(cmd + '\r\n'));
+			writer.releaseLock();
+		};
+
+		try {
+			await readResponse();
+			await writeCommand(`EHLO ${host}`);
+			await readResponse();
+			
+			if (isStartTls) {
+				await writeCommand('STARTTLS');
+				const startTlsRes = await readResponse();
+				if (!startTlsRes.startsWith('220')) {
+					throw new Error('STARTTLS not accepted by server: ' + startTlsRes);
+				}
+				activeSocket = activeSocket.startTls();
+				await writeCommand(`EHLO ${host}`);
+				await readResponse();
+			}
+
+			if (username && password) {
+				await writeCommand('AUTH LOGIN');
+				await readResponse();
+				await writeCommand(btoa(username));
+				await readResponse();
+				await writeCommand(btoa(password));
+				const authRes = await readResponse();
+				if (!authRes.startsWith('235')) {
+					throw new Error('SMTP Authentication failed: ' + authRes);
+				}
+			}
+
+			await writeCommand(`MAIL FROM:<${params.accountEmail}>`);
+			await readResponse();
+
+			for (const to of params.receiveEmail) {
+				await writeCommand(`RCPT TO:<${to}>`);
+				await readResponse();
+			}
+
+			await writeCommand('DATA');
+			await readResponse();
+
+			const messageBody = await buildMultipart();
+			await writeCommand(messageBody + '\r\n.');
+			const sendRes = await readResponse();
+			
+			await writeCommand('QUIT');
+			activeSocket.close();
+
+			if (!sendRes.startsWith('250')) {
+				throw new Error('Failed to send email data: ' + sendRes);
+			}
+
+			return {
+				data: { id: Date.now().toString() }
+			};
+		} catch (error) {
+			activeSocket.close();
+			return {
+				error: { message: error.message || 'Generic SMTP send failed' }
+			};
+		}
 	},
 
 	async toCloudflareAttachments(attachments) {
