@@ -384,6 +384,7 @@ const dbInit = {
 			`ALTER TABLE email ADD COLUMN message TEXT;`,
 
 			`ALTER TABLE setting ADD COLUMN resend_tokens TEXT NOT NULL DEFAULT '{}';`,
+			`ALTER TABLE setting ADD COLUMN send_provider_rules TEXT NOT NULL DEFAULT '{}';`,
 			`ALTER TABLE setting ADD COLUMN send INTEGER NOT NULL DEFAULT 0;`,
 			`ALTER TABLE setting ADD COLUMN r2_domain TEXT;`,
 			`ALTER TABLE setting ADD COLUMN site_key TEXT;`,

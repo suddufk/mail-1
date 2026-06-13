@@ -86,6 +86,10 @@ export const settingConst = {
 		OPEN: 0,
 		CLOSE: 1
 	},
+	sendProvider: {
+		CLOUDFLARE: 'cloudflare',
+		RESEND: 'resend'
+	},
 	addEmail: {
 		OPEN: 0,
 		CLOSE: 1

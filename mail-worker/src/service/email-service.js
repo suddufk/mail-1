@@ -164,7 +164,7 @@ const emailService = {
 			attachments = [] //附件
 		} = params;
 
-		const { resendTokens, r2Domain, send, domainList } = await settingService.query(c);
+		const { resendTokens, r2Domain, send, domainList, sendProviderRules } = await settingService.query(c);
 
 		let { imageDataList, html } = await attService.toImageUrlHtml(c, content);
 
@@ -231,10 +231,10 @@ const emailService = {
 
 		const domain = emailUtils.getDomain(accountRow.email);
 		const resendToken = resendTokens[domain];
-		const useCloudflareEmail = !!c.env.email;
+		const sendProvider = allInternal ? null : this.resolveSendProvider(c, sendProviderRules[domain], resendToken);
 
 		//如果接收方存在站外邮箱，又没有发信服务
-		if (!useCloudflareEmail && !resendToken && !allInternal) {
+		if (!sendProvider && !allInternal) {
 			throw new BizError(t('noSendProvider'));
 		}
 
@@ -260,10 +260,10 @@ const emailService = {
 
 		let sendResult = {};
 
-		//存在站外邮箱时，如果配置了 Cloudflare Email Service 就优先使用，否则使用 Resend
+		//存在站外邮箱时，按域名规则选择发信服务；未配置规则时沿用 Cloudflare 优先逻辑
 		if (!allInternal) {
 
-			if (useCloudflareEmail) {
+			if (sendProvider === settingConst.sendProvider.CLOUDFLARE) {
 				sendResult = await this.sendByCloudflareEmail(c, {
 					name,
 					accountEmail: accountRow.email,
@@ -275,7 +275,7 @@ const emailService = {
 					sendType,
 					messageId: emailRow.messageId
 				});
-			} else {
+			} else if (sendProvider === settingConst.sendProvider.RESEND) {
 				sendResult = await this.sendByResend(resendToken, {
 					name,
 					accountEmail: accountRow.email,
@@ -311,7 +311,9 @@ const emailService = {
 		emailData.content = html;
 		emailData.text = text;
 		emailData.accountId = accountId;
-		emailData.status = useCloudflareEmail ? emailConst.status.DELIVERED : emailConst.status.SENT;
+		emailData.status = sendProvider === settingConst.sendProvider.CLOUDFLARE
+			? emailConst.status.DELIVERED
+			: emailConst.status.SENT;
 		emailData.type = emailConst.type.SEND;
 		emailData.userId = userId;
 		emailData.resendEmailId = data?.id;
@@ -373,6 +375,26 @@ const emailService = {
 		}
 
 		return [ emailResult ];
+	},
+
+	resolveSendProvider(c, configuredProvider, resendToken) {
+		if (configuredProvider === settingConst.sendProvider.CLOUDFLARE) {
+			if (!c.env.email) throw new BizError(t('noCloudflareEmailProvider'));
+			return settingConst.sendProvider.CLOUDFLARE;
+		}
+
+		if (configuredProvider === settingConst.sendProvider.RESEND) {
+			if (!resendToken) throw new BizError(t('noResendToken'));
+			return settingConst.sendProvider.RESEND;
+		}
+
+		if (configuredProvider) {
+			throw new BizError(t('invalidSendProvider'));
+		}
+
+		if (c.env.email) return settingConst.sendProvider.CLOUDFLARE;
+		if (resendToken) return settingConst.sendProvider.RESEND;
+		return null;
 	},
 
 	async sendByCloudflareEmail(c, params) {

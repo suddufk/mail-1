@@ -177,11 +177,12 @@
                 </div>
               </div>
               <div class="setting-item">
-                <div><span>{{ setting.hasCfEmail ? $t('cloudflareEmailSending') : $t('resendToken') }}</span></div>
-                <div v-if="setting.hasCfEmail">
-                  <span>{{ $t('enabled') }}</span>
-                </div>
-                <div v-else>
+                <div><span>{{ $t('sendProvider') }}</span></div>
+                <div>
+                  <el-button class="opt-button" style="margin-top: 0" @click="openSendProviderRules" size="small"
+                             type="primary">
+                    <Icon icon="fluent:settings-48-regular" width="16" height="16"/>
+                  </el-button>
                   <el-button class="opt-button" style="margin-top: 0" @click="openResendList" size="small"
                              type="primary">
                     <Icon icon="ic:round-list" width="18" height="18"/>
@@ -459,6 +460,29 @@
           <el-input type="text" :placeholder="$t('addResendTokenDesc')" v-model="resendTokenForm.token"/>
           <el-button type="primary" :loading="settingLoading" @click="saveResendToken">{{ $t('save') }}</el-button>
         </form>
+      </el-dialog>
+      <el-dialog v-model="sendProviderRulesShow" :title="$t('sendProviderRules')" width="520"
+                 @closed="resetSendProviderRules">
+        <el-table :data="sendProviderRuleRows">
+          <el-table-column property="domain" :label="$t('domain')" :show-overflow-tooltip="true"/>
+          <el-table-column :label="$t('provider')" width="220">
+            <template #default="{ row }">
+              <el-select v-model="sendProviderRulesForm[row.key]" placeholder="Select">
+                <el-option
+                    v-for="item in sendProviderOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                    :disabled="item.disabled"
+                />
+              </el-select>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-button style="width: 100%; margin-top: 16px" type="primary" :loading="settingLoading"
+                   @click="saveSendProviderRules">
+          {{ $t('save') }}
+        </el-button>
       </el-dialog>
       <el-dialog v-model="r2DomainShow" :title="$t('addOsDomain')" width="340"
                  @closed="r2DomainInput = setting.r2Domain">
@@ -846,6 +870,7 @@ const noticePopupShow = ref(false)
 const thirdEmailShow = ref(false)
 const forwardRulesShow = ref(false)
 const emailPrefixShow = ref(false)
+const sendProviderRulesShow = ref(false)
 const showResendList = ref(false)
 const settingStore = useSettingStore();
 const uiStore = useUiStore();
@@ -870,6 +895,7 @@ const resendTokenForm = reactive({
   domain: '',
   token: '',
 })
+const sendProviderRulesForm = ref({})
 const turnstileForm = reactive({
   siteKey: '',
   secretKey: ''
@@ -899,6 +925,11 @@ const regKeyOptions = computed(() => [
   {label: t('enable'), value: 0},
   {label: t('disable'), value: 1},
   {label: t('optional'), value: 2},
+])
+
+const sendProviderOptions = computed(() => [
+  {label: 'Cloudflare', value: 'cloudflare', disabled: !setting.value.hasCfEmail},
+  {label: 'Resend', value: 'resend', disabled: false}
 ])
 
 const blackListForm = ref({
@@ -958,6 +989,7 @@ function getSettings() {
     resetEmailPrefix()
     resetBlackList()
     resetAiCodeFilter()
+    resetSendProviderRules()
     nextTick(() => {
       settingReady.value = true
     })
@@ -1009,6 +1041,35 @@ const resendList = computed(() => {
 
   return list;
 });
+
+const sendProviderRuleRows = computed(() => {
+  return (setting.value.domainList || []).map(domain => {
+    return {
+      domain,
+      key: getDomainKey(domain)
+    }
+  })
+})
+
+function getDomainKey(domain) {
+  return domain.startsWith('@') ? domain.slice(1) : domain
+}
+
+function getDefaultSendProvider() {
+  return setting.value.hasCfEmail ? 'cloudflare' : 'resend'
+}
+
+function resetSendProviderRules() {
+  const rules = {}
+  const savedRules = setting.value.sendProviderRules || {}
+
+  ;(setting.value.domainList || []).forEach(domain => {
+    const key = getDomainKey(domain)
+    rules[key] = savedRules[key] || getDefaultSendProvider()
+  })
+
+  sendProviderRulesForm.value = rules
+}
 
 function getUpdate() {
   if (getUpdateErrorCount > 5 || !getUpdateErrorCount) return
@@ -1399,6 +1460,15 @@ function openResendForm() {
   resendTokenFormShow.value = true
 }
 
+function openSendProviderRules() {
+  resetSendProviderRules()
+  sendProviderRulesShow.value = true
+}
+
+function saveSendProviderRules() {
+  editSetting({sendProviderRules: {...sendProviderRulesForm.value}})
+}
+
 function openBlackListForm() {
   blackFormShow.value = true
 }
@@ -1493,6 +1563,7 @@ function editSetting(settingForm, refreshStatus = true) {
     addS3Show.value = false
     emailPrefixShow.value = false
     aiCodeFilterShow.value = false
+    sendProviderRulesShow.value = false
   }).catch((e) => {
     loginOpacity.value = setting.value.loginOpacity
     setting.value = {...setting.value, ...JSON.parse(backup)}

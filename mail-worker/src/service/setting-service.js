@@ -10,11 +10,46 @@ import {t} from '../i18n/i18n'
 import verifyRecordService from './verify-record-service';
 import userContext from '../security/user-context';
 
+const EMPTY_JSON = '{}';
+
+function parseJsonMap(value) {
+	if (!value) return {};
+	return JSON.parse(value);
+}
+
+function mergeStringMap(currentMap = {}, nextMap = {}) {
+	const mergedMap = { ...currentMap, ...nextMap };
+	Object.keys(mergedMap).forEach(key => {
+		if (!mergedMap[key]) delete mergedMap[key];
+	});
+	return mergedMap;
+}
+
+function toSettingUpdate(settingData, params) {
+	const updateData = { ...params };
+	const resendTokens = mergeStringMap(settingData.resendTokens, params.resendTokens);
+	const sendProviderRules = mergeStringMap(settingData.sendProviderRules, params.sendProviderRules);
+
+	updateData.resendTokens = JSON.stringify(resendTokens);
+	updateData.sendProviderRules = JSON.stringify(sendProviderRules);
+
+	if (Array.isArray(updateData.emailPrefixFilter)) {
+		updateData.emailPrefixFilter = updateData.emailPrefixFilter + '';
+	}
+
+	if (Array.isArray(updateData.aiCodeFilter)) {
+		updateData.aiCodeFilter = updateData.aiCodeFilter + '';
+	}
+
+	return updateData;
+}
+
 const settingService = {
 
 	async refresh(c) {
 		const settingRow = await orm(c).select().from(setting).get();
-		settingRow.resendTokens = JSON.parse(settingRow.resendTokens);
+		settingRow.resendTokens = parseJsonMap(settingRow.resendTokens || EMPTY_JSON);
+		settingRow.sendProviderRules = parseJsonMap(settingRow.sendProviderRules || EMPTY_JSON);
 		c.set('setting', settingRow);
 		await c.env.kv.put(KvConst.SETTING, JSON.stringify(settingRow));
 	},
@@ -30,6 +65,9 @@ const settingService = {
 		if (!setting) {
 			throw new BizError('数据库未初始化 Database not initialized.');
 		}
+
+		setting.resendTokens = setting.resendTokens || {};
+		setting.sendProviderRules = setting.sendProviderRules || {};
 
 		let domainList = c.env.domain;
 
@@ -126,21 +164,8 @@ const settingService = {
 
 	async set(c, params) {
 		const settingData = await this.query(c);
-		let resendTokens = { ...settingData.resendTokens, ...params.resendTokens };
-		Object.keys(resendTokens).forEach(domain => {
-			if (!resendTokens[domain]) delete resendTokens[domain];
-		});
-
-		if (Array.isArray(params.emailPrefixFilter)) {
-			params.emailPrefixFilter = params.emailPrefixFilter + '';
-		}
-
-		if (Array.isArray(params.aiCodeFilter)) {
-			params.aiCodeFilter = params.aiCodeFilter + '';
-		}
-
-		params.resendTokens = JSON.stringify(resendTokens);
-		await orm(c).update(setting).set({ ...params }).returning().get();
+		const updateData = toSettingUpdate(settingData, params);
+		await orm(c).update(setting).set(updateData).returning().get();
 		await this.refresh(c);
 	},
 
