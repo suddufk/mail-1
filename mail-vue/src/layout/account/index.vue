@@ -8,27 +8,22 @@
       <div v-infinite-scroll="getAccountList" :infinite-scroll-distance="600" :infinite-scroll-immediate="false">
         <el-card class="item" :class="itemBg(item.accountId)" v-for="(item, index) in accounts" :key="item.accountId"
                  @click="changeAccount(item)">
-          <div class="account">
-            {{ item.email }}
-          </div>
           <div class="opt">
             <div class="send-email" @click.stop>
               <Icon @click="setAllReceive(item)" v-if="!item.allReceive" icon="eva:email-fill" width="22" height="22" color="#fccb1a"/>
               <Icon @click="setAllReceive(item)" v-else icon="flat-color-icons:folder" width="22" height="22" color="#23c4f1" />
             </div>
+            <div class="account">{{ item.email }}</div>
             <div class="settings" @click.stop>
-              <Icon icon="fluent-color:clipboard-24" width="22" height="22" @click.stop="copyAccount(item.email)"/>
-              <Icon icon="fluent:settings-24-filled" width="21" height="21" color="#909399"
-                    v-if="showNullSetting(item)"/>
+              <Icon icon="fluent:more-vertical-24-filled" width="22" height="22" color="#909399" v-if="showNullSetting(item)"/>
               <el-dropdown v-else>
-                <Icon icon="fluent:settings-24-filled" width="21" height="21" color="#909399"/>
+                <Icon icon="fluent:more-vertical-24-filled" width="22" height="22" color="#909399"/>
                 <template #dropdown>
                   <el-dropdown-menu>
+                    <el-dropdown-item @click="copyAccount(item.email)">{{ $t('copy') }}</el-dropdown-item>
                     <el-dropdown-item v-if="hasPerm('email:send')" @click="openSetName(item)">{{ $t('rename') }}</el-dropdown-item>
                     <el-dropdown-item v-if="item.accountId !== userStore.user.account.accountId" @click="setAsTop(item, index)">{{ $t('pin') }}</el-dropdown-item>
-                    <el-dropdown-item v-if="item.accountId !== userStore.user.account.accountId && hasPerm('account:delete')"
-                                      @click="remove(item)">{{ $t('delete') }}
-                    </el-dropdown-item>
+                    <el-dropdown-item v-if="item.accountId !== userStore.user.account.accountId && hasPerm('account:delete')" @click="remove(item)">{{ $t('delete') }} </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -41,10 +36,10 @@
           <el-skeleton v-for="i in skeletonRows" :key="i" animated>
             <template #template>
               <el-card class="item">
-                <el-skeleton-item variant="p" style="width: 70%; height: 20px; margin-bottom: 25px"/>
                 <div style="display: flex; justify-content: space-between">
-                  <el-skeleton-item variant="text" style="width: 20px"/>
-                  <el-skeleton-item variant="text" style="width: 20px"/>
+                  <el-skeleton-item variant="text" style="width: 22px; height: 22px;"/>
+                  <el-skeleton-item variant="p" style="flex: 1; height: 22px; margin: 0 6px;"/>
+                  <el-skeleton-item variant="text" style="width: 22px; height: 22px;"/>
                 </div>
               </el-card>
             </template>
@@ -52,14 +47,14 @@
         </template>
 
         <!-- Follow Loading Skeleton -->
-        <template v-if="accounts.length > 0 && !noLoading">
+        <template v-if="followLoading">
           <el-skeleton animated>
             <template #template>
               <el-card class="item">
-                <el-skeleton-item variant="p" style="width: 70%; height: 20px; margin-bottom: 20px"/>
                 <div style="display: flex; justify-content: space-between">
-                  <el-skeleton-item variant="text" style="width: 20px"/>
-                  <el-skeleton-item variant="text" style="width: 20px"/>
+                  <el-skeleton-item variant="text" style="width: 22px; height: 22px;"/>
+                  <el-skeleton-item variant="p" style="flex: 1; height: 22px; margin: 0 6px;"/>
+                  <el-skeleton-item variant="text" style="width: 22px; height: 22px;"/>
                 </div>
               </el-card>
             </template>
@@ -580,33 +575,38 @@ path[fill="#ffdda1"] {
   .item {
     background-color: var(--el-bg-color);
     border-radius: 8px;
-    padding: 12px 10px;
+    padding: 12px 6px 12px 10px;
     margin-bottom: 10px;
     margin-left: 10px;
     margin-right: 10px;
     cursor: pointer;
 
-    .account {
-      font-weight: 600;
-      margin-bottom: 20px;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-    }
-
     .opt {
       display: flex;
       justify-content: space-between;
-      font-size: 12px;
-      color: #888;
-
+      // align-items: center;
+      
+      .account {
+        flex: 1;
+        margin-left: 6px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-weight: 500;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      
       .settings {
+        font-size: 12px;
+        color: #888;
         display: flex;
         align-items: center;
         gap: 10px;
       }
-
+      
       .send-email {
+        font-size: 12px;
+        color: #888;
         display: flex;
         align-items: center;
       }
