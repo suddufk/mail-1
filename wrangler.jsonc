@@ -1,0 +1,5 @@
+{
+  "name": "cloud-mail",
+  "compatibility_date": "2026-06-22",
+  "main": "dist/index.js"
+}
