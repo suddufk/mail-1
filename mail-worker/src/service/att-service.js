@@ -9,21 +9,25 @@ import { parseHTML } from 'linkedom';
 import { v4 as uuidv4 } from 'uuid';
 import domainUtils from '../utils/domain-uitls';
 import settingService from "./setting-service";
+import BizError from '../error/biz-error';
+import { isCalendarAttachment, parseICalendar } from '../utils/calendar-utils';
+import { attachmentContentDisposition, attachmentFilename } from '../utils/attachment-utils';
 
 const attService = {
 
 	async addAtt(c, attachments) {
 
 		for (let attachment of attachments) {
+			attachment.filename = attachmentFilename(attachment);
 
 			let metadate = {
 				contentType: attachment.mimeType,
 			}
 
 			if (!attachment.contentId) {
-				metadate.contentDisposition = `attachment;filename=${attachment.filename}`
+				metadate.contentDisposition = attachmentContentDisposition(attachment)
 			} else {
-				metadate.contentDisposition = `inline;filename=${attachment.filename}`
+				metadate.contentDisposition = attachmentContentDisposition(attachment, 'inline')
 				metadate.cacheControl = `max-age=259200`
 			}
 
@@ -45,6 +49,38 @@ const attService = {
 				isNull(att.contentId)
 			)
 		).all();
+	},
+
+	async calendar(c, params, userId) {
+		const attId = Number(params.attId);
+
+		if (!attId) {
+			throw new BizError('Attachment not found', 404);
+		}
+
+		const attRow = await orm(c).select().from(att).where(
+			and(
+				eq(att.attId, attId),
+				eq(att.userId, userId),
+				eq(att.type, attConst.type.ATT)
+			)
+		).get();
+
+		if (!attRow || !isCalendarAttachment(attRow)) {
+			throw new BizError('Calendar attachment not found', 404);
+		}
+
+		const obj = await r2Service.getObj(c, attRow.key);
+		if (!obj) {
+			throw new BizError('Attachment content not found', 404);
+		}
+
+		const content = await this.objectToText(obj);
+		return {
+			attId: attRow.attId,
+			filename: attRow.filename,
+			...parseICalendar(content)
+		};
 	},
 
 	async toImageUrlHtml(c, content) {
@@ -157,7 +193,7 @@ const attService = {
 			attData.key = att.key;
 			attData.size = att.buff.length;
 			attData.filename = att.filename;
-			attData.mimeType = att.type;
+			attData.mimeType = att.contentType || att.mimeType || att.type || 'application/octet-stream';
 			attData.type = attConst.type.ATT;
 			attDataList.push(attData);
 		}
@@ -166,7 +202,7 @@ const attService = {
 
 		for (let att of attList) {
 			await r2Service.putObj(c, att.key, att.buff, {
-				contentType: att.type,
+				contentType: att.contentType || att.mimeType || att.type || 'application/octet-stream',
 				contentDisposition: `attachment;filename=${att.filename}`
 			});
 		}
@@ -267,6 +303,30 @@ const attService = {
 			return []
 		}
 		return orm(c).select().from(att).where(inArray(att.key, keys)).orderBy(desc(att.attId)).groupBy(att.key).all();
+	},
+
+	async objectToText(obj) {
+		if (typeof obj === 'string') {
+			return obj;
+		}
+
+		if (obj?.text) {
+			return await obj.text();
+		}
+
+		if (obj?.arrayBuffer) {
+			return new TextDecoder().decode(await obj.arrayBuffer());
+		}
+
+		if (obj instanceof ArrayBuffer) {
+			return new TextDecoder().decode(obj);
+		}
+
+		if (obj instanceof Uint8Array) {
+			return new TextDecoder().decode(obj);
+		}
+
+		return '';
 	}
 };
 

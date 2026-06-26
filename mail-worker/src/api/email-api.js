@@ -24,6 +24,11 @@ app.get('/email/attList', async (c) => {
 	return c.json(result.ok(attList));
 });
 
+app.get('/email/calendar', async (c) => {
+	const data = await attService.calendar(c, c.req.query(), userContext.getUserId(c));
+	return c.json(result.ok(data));
+});
+
 app.post('/email/send', async (c) => {
 	const email = await emailService.send(c, await c.req.json(), userContext.getUserId(c));
 	return c.json(result.ok(email));
@@ -33,4 +38,3 @@ app.put('/email/read', async (c) => {
 	await emailService.read(c, await c.req.json(), userContext.getUserId(c));
 	return c.json(result.ok());
 })
-

@@ -15,18 +15,18 @@
         </div>
       </div>
       <div class="container">
-        <el-input-tag  @add-tag="addTagChange" tag-type="primary" @input="inputChange" size="default" v-model="form.receiveEmail" >
+        <el-input-tag  @add-tag="val => addTagChange(val, 'receiveEmail')" tag-type="primary" @input="value => inputChange(value, 'receiveEmail')" size="default" v-model="form.receiveEmail" >
           <template #prefix>
             <div class="item-title" >{{ $t('recipient') }}</div>
             <el-select
-                ref="mySelect"
+                ref="receiveSelect"
                 class="write-select"
                 popper-class="write-select"
                 :show-arrow="false"
                 :no-match-text="' '"
                 :no-data-text="' '"
-                @visible-change="selectStatusChange"
-                @change="selectChange"
+                @visible-change="status => selectStatusChange(status, 'receiveEmail')"
+                @change="value => selectChange(value, 'receiveEmail')"
             >
               <el-option
                   v-for="item in selectRecipientList"
@@ -41,6 +41,29 @@
             <div style="display: flex;margin-right: 3px;">
               <Icon icon="fa7-solid:user-plus" width="20" height="20" class="add-contact" @click.stop="openContacts" />
             </div>
+          </template>
+        </el-input-tag>
+        <el-input-tag @add-tag="val => addTagChange(val, 'ccEmail')" tag-type="info" @input="value => inputChange(value, 'ccEmail')" size="default" v-model="form.ccEmail">
+          <template #prefix>
+            <div class="item-title" >{{ $t('cc') }}</div>
+            <el-select
+                ref="ccSelect"
+                class="write-select"
+                popper-class="write-select"
+                :show-arrow="false"
+                :no-match-text="' '"
+                :no-data-text="' '"
+                @visible-change="status => selectStatusChange(status, 'ccEmail')"
+                @change="value => selectChange(value, 'ccEmail')"
+            >
+              <el-option
+                  v-for="item in selectRecipientList"
+                  :key="item"
+                  :label="item"
+                  :value="item"
+                  style="color: #999896;"
+              />
+            </el-select>
           </template>
         </el-input-tag>
         <el-input v-model="form.subject" :placeholder="t('subject')" />
@@ -114,6 +137,7 @@ import dayjs from "dayjs";
 import {useI18n} from "vue-i18n";
 import router from "@/router/index.js";
 import {ElMessageBox} from "element-plus";
+import {formatEmailBody} from "@/utils/email-content.js";
 
 defineExpose({
   open,
@@ -137,10 +161,13 @@ let sending = false
 const defValue = ref('')
 const contactsTabRef = ref({})
 const showContacts = ref(false)
-const mySelect = ref()
+const receiveSelect = ref()
+const ccSelect = ref()
 let selectStatus = false
+let activeRecipientField = 'receiveEmail'
 const backReply = reactive({
   receiveEmail: [],
+  ccEmail: [],
   subject: '',
   content: '',
   sendType: ''
@@ -148,6 +175,7 @@ const backReply = reactive({
 const form = reactive({
   sendEmail: '',
   receiveEmail: [],
+  ccEmail: [],
   accountId: -1,
   name: '',
   subject: '',
@@ -182,6 +210,7 @@ function deleteContact() {
   }).then(() => {
     const contactList = contactsTabRef.value.getSelectionRows().map(item => item.email);
     form.receiveEmail = form.receiveEmail.filter(item => !contactList.includes(item));
+    form.ccEmail = form.ccEmail.filter(item => !contactList.includes(item));
     writerStore.sendRecipientRecord = writerStore.sendRecipientRecord.filter(item => !contactList.includes(item));
   })
 }
@@ -190,7 +219,7 @@ function chooseContact() {
 
   const contactList = contactsTabRef.value.getSelectionRows().map(item => item.email);
   contactList.forEach(item => {
-    if (!form.receiveEmail.includes(item)) {
+    if (!hasRecipient(item)) {
       form.receiveEmail.push(item);
     }
   })
@@ -206,48 +235,56 @@ function clearSelectContact() {
   contactsTabRef.value.clearSelection();
 }
 
-function selectChange(value) {
-  form.receiveEmail.push(value)
+function selectChange(value, field = activeRecipientField) {
+  if (!hasRecipient(value)) {
+    form[field].push(value)
+  }
 }
 
-function selectStatusChange(status) {
+function selectStatusChange(status, field = activeRecipientField) {
   selectStatus = status
+  if (status) activeRecipientField = field
 }
 
-const openSelect = () => {
-  mySelect.value.toggleMenu()
+const openSelect = (field = activeRecipientField) => {
+  const selectRef = field === 'ccEmail' ? ccSelect : receiveSelect;
+  selectRef.value?.toggleMenu()
 }
 
-function inputChange(value) {
+function inputChange(value, field = 'receiveEmail') {
 
-  selectRecipientList.value = writerStore.sendRecipientRecord.filter(item => value && !form.receiveEmail.includes(item) && item.startsWith(value)).slice(0, 10);
+  activeRecipientField = field
+
+  selectRecipientList.value = writerStore.sendRecipientRecord.filter(item => value && !hasRecipient(item) && item.startsWith(value)).slice(0, 10);
 
   if (!selectStatus && selectRecipientList.value.length > 0) {
-    openSelect()
+    openSelect(field)
   }
 
   if (selectStatus && selectRecipientList.value.length === 0) {
-    openSelect()
+    openSelect(field)
   }
 
 }
 
-function addTagChange(val) {
+function addTagChange(val, field = 'receiveEmail') {
+
+  const emailList = form[field];
 
   const emails = Array.from(new Set(
       val.split(/[,，]/).map(item => item.trim()).filter(item => item)
   ));
 
-  form.receiveEmail.splice(form.receiveEmail.length - 1, 1)
+  emailList.splice(emailList.length - 1, 1)
 
   let has = false
   emails.forEach(email => {
-    if (isEmail(email) && !form.receiveEmail.includes(email)) {
-      form.receiveEmail.push(email)
+    if (isEmail(email) && !hasRecipient(email)) {
+      emailList.push(email)
       has = true
     }
   })
-  if (selectStatus && has) openSelect()
+  if (selectStatus && has) openSelect(field)
 }
 
 function clearContent() {
@@ -400,16 +437,19 @@ async function sendEmail() {
 }
 
 function addRecipientRecord() {
+  const recipientList = uniqueEmailList([...form.receiveEmail, ...form.ccEmail]);
+
   writerStore.sendRecipientRecord = writerStore.sendRecipientRecord.filter(
-      email => !form.receiveEmail.includes(email)
+      email => !recipientList.includes(email)
   );
 
-  writerStore.sendRecipientRecord.unshift(...form.receiveEmail);
+  writerStore.sendRecipientRecord.unshift(...recipientList);
   writerStore.sendRecipientRecord = writerStore.sendRecipientRecord.slice(0, 500);
 }
 
 function resetForm() {
   form.receiveEmail = []
+  form.ccEmail = []
   form.subject = ''
   form.content = ''
   form.manyType = null
@@ -420,6 +460,7 @@ function resetForm() {
   backReply.content = ''
   backReply.subject = ''
   backReply.receiveEmail = []
+  backReply.ccEmail = []
   backReply.sendType = ''
   editor.value.clearEditor()
 }
@@ -440,23 +481,89 @@ function openForward(email) {
 
   form.subject = email.subject
   form.sendType = 'forward'
+  form.attachments = toForwardAttachments(email.attList)
 
   defValue.value = ''
 
   setTimeout(() => {
-    defValue.value = `
-      ${formatImage(email.content) || `<pre style="font-family: inherit;word-break: break-word;white-space: pre-wrap;margin: 0">${email.text}</pre>`}
-    `
+    defValue.value = formatForwardContent(email)
     open()
 
     nextTick(() => {
       backReply.content = editor.value.getContent()
       backReply.subject = form.subject
-      backReply.receiveEmail = form.receiveEmail
+      backReply.receiveEmail = [...form.receiveEmail]
+      backReply.ccEmail = [...form.ccEmail]
       backReply.sendType = form.sendType
     })
 
   });
+}
+
+function formatForwardContent(email) {
+  const to = formatAddressList(email.recipient);
+  const cc = formatAddressList(email.cc);
+  const ccRow = cc ? `<div><strong>${t('cc')}:</strong> ${cc}</div>` : '';
+  const content = formatOriginalEmailContent(email);
+
+  return `
+    <div></div>
+    <div><br></div>
+    <div class="mceNonEditable" style="margin: 0 0 8px;color: #606266;font-size: 13px;">
+      <div>---------- ${t('forwardedMessage')} ----------</div>
+      <div><strong>${t('from')}:</strong> ${formatAddress(email.name, email.sendEmail)}</div>
+      <div><strong>${t('date')}:</strong> ${formatDetailDate(email.createTime)}</div>
+      <div><strong>${t('subject')}:</strong> ${escapeHtml(email.subject || '')}</div>
+      <div><strong>${t('recipient')}:</strong> ${to}</div>
+      ${ccRow}
+    </div>
+    <blockquote class="mceNonEditable" style="margin: 0 0 0 0.8ex;border-left: 1px solid rgb(204,204,204);padding-left: 1ex;">
+      <article>
+        ${content}
+      </article>
+    </blockquote>`
+}
+
+function formatOriginalEmailContent(email) {
+  const body = formatEmailBody(email);
+  if (body.type === 'html') {
+    return formatImage(body.value);
+  }
+  return `<pre style="font-family: inherit;word-break: break-word;white-space: pre-wrap;margin: 0">${escapeHtml(body.value || '')}</pre>`;
+}
+
+function formatAddress(name, address) {
+  const safeName = escapeHtml(name || '');
+  const safeAddress = escapeHtml(address || '');
+  return safeName ? `${safeName} &lt;${safeAddress}&gt;` : safeAddress;
+}
+
+function formatAddressList(value) {
+  return parseAddressList(value).map(item => formatAddress(item.name, item.address)).join(', ');
+}
+
+function escapeHtml(value) {
+  return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+}
+
+function toForwardAttachments(attList = []) {
+  return attList
+      .filter(att => att?.key && !att.contentId)
+      .map(att => {
+        const contentType = att.mimeType || att.contentType || 'application/octet-stream';
+        return {
+          key: att.key,
+          filename: att.filename,
+          size: att.size,
+          mimeType: contentType,
+          contentType
+        };
+      });
 }
 
 function openReply(email) {
@@ -465,7 +572,7 @@ function openReply(email) {
 
   email.subject = email.subject || ''
 
-  form.receiveEmail.push(email.sendEmail)
+  setReplyAllRecipients(email)
   form.subject = (
       email.subject.startsWith('Re:') ||
       email.subject.startsWith('Re：') ||
@@ -485,7 +592,7 @@ function openReply(email) {
     </div>
     <blockquote class="mceNonEditable" style="margin: 0 0 0 0.8ex;border-left: 1px solid rgb(204,204,204);padding-left: 1ex;">
       <articl>
-          ${formatImage(email.content) || `<pre style="font-family: inherit;word-break: break-word;white-space: pre-wrap;margin: 0">${email.text}</pre>`}
+          ${formatOriginalEmailContent(email)}
       </article>
     </blockquote>`
     open()
@@ -493,11 +600,92 @@ function openReply(email) {
     nextTick(() => {
       backReply.content = editor.value.getContent()
       backReply.subject = form.subject
-      backReply.receiveEmail = form.receiveEmail
+      backReply.receiveEmail = [...form.receiveEmail]
+      backReply.ccEmail = [...form.ccEmail]
       backReply.sendType = form.sendType
     })
   })
 
+}
+
+function setReplyAllRecipients(email) {
+  const senderEmail = currentSenderEmail();
+  const senderKey = normalizeEmail(senderEmail);
+  const originalSenderKey = normalizeEmail(email.sendEmail);
+
+  addUniqueEmail(form.receiveEmail, email.sendEmail, [senderKey]);
+
+  parseAddressList(email.recipient).forEach(item => {
+    addUniqueEmail(form.receiveEmail, item.address, [senderKey, originalSenderKey]);
+  });
+
+  parseAddressList(email.cc).forEach(item => {
+    addUniqueEmail(form.ccEmail, item.address, [
+      senderKey,
+      originalSenderKey,
+      ...form.receiveEmail.map(normalizeEmail)
+    ]);
+  });
+}
+
+function parseAddressList(value) {
+  try {
+    if (typeof value === 'string') {
+      value = JSON.parse(value || '[]');
+    }
+  } catch (e) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+      .map(item => typeof item === 'string' ? {address: item} : item)
+      .filter(item => item?.address && isEmail(item.address));
+}
+
+function currentSenderEmail() {
+  return accountStore.currentAccount.email || userStore.user.email || '';
+}
+
+function normalizeEmail(email) {
+  return (email || '').trim().toLowerCase();
+}
+
+function hasRecipient(email) {
+  const key = normalizeEmail(email);
+  return [...form.receiveEmail, ...form.ccEmail].some(item => normalizeEmail(item) === key);
+}
+
+function addUniqueEmail(list, email, excludeKeys = []) {
+  if (!email || !isEmail(email)) {
+    return;
+  }
+
+  const key = normalizeEmail(email);
+  if (excludeKeys.includes(key) || list.some(item => normalizeEmail(item) === key) || hasRecipient(email)) {
+    return;
+  }
+
+  list.push(email.trim());
+}
+
+function uniqueEmailList(emailList) {
+  const emailSet = new Set();
+  const result = [];
+
+  emailList.forEach(email => {
+    const key = normalizeEmail(email);
+    if (!key || emailSet.has(key)) {
+      return;
+    }
+    emailSet.add(key);
+    result.push(email);
+  });
+
+  return result;
 }
 
 function formatImage(content) {
@@ -557,7 +745,7 @@ function close() {
     return;
   }
 
-  if (!(form.content || form.subject || form.receiveEmail.length > 0)) {
+  if (!(form.content || form.subject || form.receiveEmail.length > 0 || form.ccEmail.length > 0)) {
     show.value = false
     resetForm()
     return;
@@ -566,8 +754,8 @@ function close() {
   if (backReply.sendType === 'reply' || backReply.sendType === 'forward') {
     let subjectFlag = form.subject === backReply.subject
     let contentFlag = editor.value.getContent() === backReply.content
-    let receiveFlag = form.receiveEmail.length === 1 && form.receiveEmail[0] === backReply.receiveEmail[0]
-    if (backReply.sendType === 'forward' && form.receiveEmail.length === 0) {
+    let receiveFlag = sameEmailList(form.receiveEmail, backReply.receiveEmail) && sameEmailList(form.ccEmail, backReply.ccEmail)
+    if (backReply.sendType === 'forward' && form.receiveEmail.length === 0 && form.ccEmail.length === 0) {
       receiveFlag = true;
     }
     if (subjectFlag && contentFlag && receiveFlag) {
@@ -601,6 +789,10 @@ function close() {
     }
   })
 
+}
+
+function sameEmailList(a, b) {
+  return JSON.stringify(a.map(normalizeEmail)) === JSON.stringify(b.map(normalizeEmail));
 }
 
 </script>
@@ -691,7 +883,7 @@ function close() {
     .container {
       height: 100%;
       display: grid;
-      grid-template-rows: auto auto 1fr auto;
+      grid-template-rows: auto auto auto 1fr auto;
       gap: 15px;
 
       .item-title {

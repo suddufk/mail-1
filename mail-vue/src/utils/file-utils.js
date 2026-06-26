@@ -1,6 +1,8 @@
 import Compressor from "compressorjs";
 
 export function getExtName(fileName) {
+    if (!fileName) return ''
+    fileName = String(fileName)
     const index = fileName.lastIndexOf('.')
     return index !== -1 ? fileName.slice(index + 1).toLowerCase() : ''
 }

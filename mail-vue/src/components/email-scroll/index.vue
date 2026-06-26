@@ -246,6 +246,7 @@ import {useI18n} from "vue-i18n";
 import {EmailUnreadEnum} from "@/enums/email-enum.js";
 import { UseVirtualList } from '@vueuse/components'
 import { useScroll } from '@vueuse/core'
+import {htmlToVisibleText} from "@/utils/email-content.js";
 
 const props = defineProps({
   getEmailList: Function,
@@ -553,18 +554,10 @@ const accountShow = computed(() => {
 
 function htmlToText(email) {
   if (email.content) {
-
-    const tempDiv = document.createElement('div');
-
-    tempDiv.innerHTML = email.content.replace(
-        /<(img|iframe|object|embed|video|audio|source|link)[^>]*>/gi, ''
-    );
-
-    const scriptsAndStyles = tempDiv.querySelectorAll('script, style, title');
-    scriptsAndStyles.forEach(el => el.remove());
-    let text = tempDiv.textContent || tempDiv.innerText || '';
-    text = text.replace(/\s+/g, ' ').trim();
-    return cleanSpace(text)
+    const text = htmlToVisibleText(email.content);
+    if (text) {
+      return cleanSpace(text)
+    }
   }
 
   if (email.text) {

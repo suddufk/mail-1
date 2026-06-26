@@ -16,6 +16,10 @@ export function emailRead(emailIds) {
     return http.put('/email/read', {emailIds})
 }
 
+export function emailCalendar(attId) {
+    return http.get('/email/calendar', {params: {attId}, noMsg: true})
+}
+
 export function emailSend(form,progress) {
     return http.post('/email/send', form,{
         onUploadProgress: (e) => {

@@ -22,6 +22,8 @@ import domainUtils from '../utils/domain-uitls';
 import account from "../entity/account";
 import { att } from '../entity/att';
 import telegramService from './telegram-service';
+import verifyUtils from '../utils/verify-utils';
+import r2Service from './r2-service';
 
 const emailService = {
 
@@ -158,6 +160,7 @@ const emailService = {
 			sendType, //发件类型
 			emailId, //邮件id，如果是回复邮件会带
 			receiveEmail, //收件人邮箱
+			ccEmail = [], //抄送邮箱
 			text, //邮件纯文本
 			content, //邮件内容
 			subject, //邮件标题
@@ -165,6 +168,10 @@ const emailService = {
 		} = params;
 
 		const { resendTokens, r2Domain, send, domainList } = await settingService.query(c);
+
+		receiveEmail = this.normalizeEmailList(receiveEmail);
+		ccEmail = this.normalizeEmailList(ccEmail);
+		const sendEmailList = this.uniqueEmailList([...receiveEmail, ...ccEmail]);
 
 		let { imageDataList, html } = await attService.toImageUrlHtml(c, content);
 
@@ -177,7 +184,7 @@ const emailService = {
 		const roleRow = await roleService.selectById(c, userRow.type);
 
 		//判断接收方是不是全部为站内邮箱
-		const allInternal = receiveEmail.every(email => {
+		const allInternal = sendEmailList.every(email => {
 			const domain = '@' + emailUtils.getDomain(email);
 			return domainList.includes(domain);
 		});
@@ -204,7 +211,7 @@ const emailService = {
 				if (roleRow.sendType === 'count') throw new BizError(t('totalSendLimit'), 403);
 			}
 
-			if (userRow.sendCount + receiveEmail.length > roleRow.sendCount) {
+			if (userRow.sendCount + sendEmailList.length > roleRow.sendCount) {
 				if (roleRow.sendType === 'day') throw new BizError(t('daySendLack'), 403);
 				if (roleRow.sendType === 'count') throw new BizError(t('totalSendLack'), 403);
 			}
@@ -258,6 +265,8 @@ const emailService = {
 
 		}
 
+		attachments = await this.hydrateForwardAttachments(c, attachments);
+
 		let sendResult = {};
 
 		//存在站外邮箱时，如果配置了 Cloudflare Email Service 就优先使用，否则使用 Resend
@@ -268,6 +277,7 @@ const emailService = {
 					name,
 					accountEmail: accountRow.email,
 					receiveEmail,
+					ccEmail,
 					subject,
 					text,
 					html,
@@ -280,6 +290,7 @@ const emailService = {
 					name,
 					accountEmail: accountRow.email,
 					receiveEmail,
+					ccEmail,
 					subject,
 					text,
 					html,
@@ -323,6 +334,7 @@ const emailService = {
 		});
 
 		emailData.recipient = JSON.stringify(recipient);
+		emailData.cc = JSON.stringify(this.toAddressList(ccEmail));
 
 		if (sendType === 'reply') {
 			emailData.inReplyTo = emailRow.messageId;
@@ -331,7 +343,7 @@ const emailService = {
 
 		//如果权限有发送次数增加用户发送次数
 		if (roleRow.sendCount && roleRow.sendType !== 'internal') {
-			await userService.incrUserSendCount(c, receiveEmail.length, userId);
+			await userService.incrUserSendCount(c, sendEmailList.length, userId);
 		}
 
 		//保存到数据库并返回结果
@@ -358,7 +370,7 @@ const emailService = {
 
 		//如果全是站内接收方，直接写入数据库
 		if (allInternal) {
-			await this.HandleOnSiteEmail(c, receiveEmail, emailResult, attList);
+			await this.HandleOnSiteEmail(c, sendEmailList, emailResult, attList);
 		}
 
 		const dateStr = dayjs().format('YYYY-MM-DD');
@@ -366,9 +378,9 @@ const emailService = {
 
 		//记录每天发件次数统计
 		if (!daySendTotal) {
-			await c.env.kv.put(kvConst.SEND_DAY_COUNT + dateStr, JSON.stringify(receiveEmail.length), { expirationTtl: 60 * 60 * 24 });
+			await c.env.kv.put(kvConst.SEND_DAY_COUNT + dateStr, JSON.stringify(sendEmailList.length), { expirationTtl: 60 * 60 * 24 });
 		} else  {
-			daySendTotal = Number(daySendTotal) + receiveEmail.length
+			daySendTotal = Number(daySendTotal) + sendEmailList.length
 			await c.env.kv.put(kvConst.SEND_DAY_COUNT + dateStr, JSON.stringify(daySendTotal), { expirationTtl: 60 * 60 * 24 });
 		}
 
@@ -381,6 +393,11 @@ const emailService = {
 			to: [...params.receiveEmail],
 			subject: params.subject
 		};
+
+		const ccEmail = this.normalizeEmailList(params.ccEmail);
+		if (ccEmail.length > 0) {
+			sendForm.cc = ccEmail;
+		}
 
 		if (params.text) {
 			sendForm.text = params.text;
@@ -423,6 +440,11 @@ const emailService = {
 			attachments: await this.toResendAttachments(params.attachments)
 		};
 
+		const ccEmail = this.normalizeEmailList(params.ccEmail);
+		if (ccEmail.length > 0) {
+			sendForm.cc = ccEmail;
+		}
+
 		if (params.sendType === 'reply') {
 			sendForm.headers = {
 				'in-reply-to': params.messageId,
@@ -431,6 +453,102 @@ const emailService = {
 		}
 
 		return await resend.emails.send(sendForm);
+	},
+
+	normalizeEmailList(emailList = []) {
+		if (typeof emailList === 'string') {
+			emailList = emailList.split(/[,，]/);
+		}
+
+		if (!Array.isArray(emailList)) {
+			return [];
+		}
+
+		const result = [];
+		const emailSet = new Set();
+
+		emailList.forEach(item => {
+			const email = typeof item === 'string' ? item.trim() : item?.address?.trim();
+			if (!email) {
+				return;
+			}
+
+			if (!verifyUtils.isEmail(email)) {
+				throw new BizError(t('notEmail'));
+			}
+
+			const key = email.toLowerCase();
+			if (!emailSet.has(key)) {
+				emailSet.add(key);
+				result.push(email);
+			}
+		});
+
+		return result;
+	},
+
+	uniqueEmailList(emailList = []) {
+		return this.normalizeEmailList(emailList);
+	},
+
+	toAddressList(emailList = []) {
+		return this.normalizeEmailList(emailList).map(item => ({ address: item, name: '' }));
+	},
+
+	async hydrateForwardAttachments(c, attachments = []) {
+		const result = [];
+
+		for (const attachment of attachments) {
+			if (attachment.content || !attachment.key) {
+				result.push(attachment);
+				continue;
+			}
+
+			const obj = await this.getAttachmentObject(c, attachment.key);
+			if (!obj) {
+				throw new BizError(`Attachment not found: ${attachment.filename || attachment.key}`);
+			}
+
+			const contentType = attachment.contentType || attachment.mimeType || this.getObjectContentType(obj);
+			result.push({
+				...attachment,
+				content: await this.objectToBase64(obj),
+				contentType,
+				mimeType: attachment.mimeType || contentType
+			});
+		}
+
+		return result;
+	},
+
+	getAttachmentObject(c, key) {
+		return r2Service.getObj(c, key);
+	},
+
+	getObjectContentType(obj) {
+		return obj?.httpMetadata?.contentType || obj?.headers?.get?.('Content-Type') || 'application/octet-stream';
+	},
+
+	async objectToBase64(obj) {
+		let content = obj;
+
+		if (content?.arrayBuffer) {
+			content = await content.arrayBuffer();
+		}
+
+		if (content instanceof ArrayBuffer) {
+			content = new Uint8Array(content);
+		}
+
+		if (content instanceof Uint8Array) {
+			let binary = '';
+			for (let i = 0; i < content.length; i += 0x8000) {
+				binary += String.fromCharCode(...content.subarray(i, i + 0x8000));
+			}
+			return btoa(binary);
+		}
+
+		return content;
 	},
 
 	async toCloudflareAttachments(attachments) {

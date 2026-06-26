@@ -26,6 +26,7 @@
                 </div>
               </div>
               <div class="receive"><span class="source">{{$t('recipient')}}</span><span class="receive-email">{{  formateReceive(email.recipient) }}</span></div>
+              <div class="receive" v-if="formateReceive(email.cc)"><span class="source">{{$t('cc')}}</span><span class="receive-email">{{  formateReceive(email.cc) }}</span></div>
               <div class="date">
                 <div>{{ formatDetailDate(email.createTime) }}</div>
               </div>
@@ -34,28 +35,56 @@
             <el-alert v-if="email.status === 4" :closable="false" :title="$t('complained')" class="email-msg" type="warning" show-icon />
             <el-alert v-if="email.status === 5" :closable="false" :title="$t('delayed')" class="email-msg" type="warning" show-icon />
           </div>
-          <el-scrollbar class="htm-scrollbar" :class="email.attList.length === 0 ? 'bottom-distance' : ''">
-            <ShadowHtml class="shadow-html" :html="formatImage(email.content)" v-if="email.content" />
-            <pre v-else class="email-text" >{{email.text}}</pre>
+          <el-scrollbar class="htm-scrollbar" :class="attList.length === 0 ? 'bottom-distance' : ''">
+            <ShadowHtml class="shadow-html" :html="emailBody.value" v-if="emailBody.type === 'html'" />
+            <pre v-else class="email-text" >{{emailBody.value}}</pre>
           </el-scrollbar>
-          <div class="att" v-if="email.attList.length > 0">
+          <div class="calendar-list" v-if="calendarInvites.length > 0">
+            <div class="calendar-card" v-for="invite in calendarInvites" :key="invite.attId">
+              <div class="calendar-head">
+                <Icon icon="fluent:calendar-ltr-24-regular" width="22" height="22"/>
+                <div class="calendar-title">{{ invite.summary || email.subject || $t('calendarInvite') }}</div>
+              </div>
+              <div class="calendar-row" v-if="formatCalendarRange(invite)">
+                <Icon icon="solar:calendar-date-bold-duotone" width="18" height="18"/>
+                <span>{{ formatCalendarRange(invite) }}</span>
+              </div>
+              <div class="calendar-row" v-if="invite.location">
+                <Icon icon="solar:map-point-bold-duotone" width="18" height="18"/>
+                <span>{{ invite.location }}</span>
+              </div>
+              <div class="calendar-row" v-if="invite.meetingId">
+                <span class="calendar-label">{{ $t('meetingId') }}</span>
+                <span>{{ invite.meetingId }}</span>
+              </div>
+              <div class="calendar-row" v-if="invite.accessCode">
+                <span class="calendar-label">{{ $t('meetingCode') }}</span>
+                <span>{{ invite.accessCode }}</span>
+              </div>
+              <a v-if="invite.teamsUrl" class="join-link" :href="invite.teamsUrl" target="_blank" rel="noopener noreferrer">
+                <Icon icon="fluent:people-team-24-filled" width="18" height="18"/>
+                <span>{{ $t('joinMeeting') }}</span>
+              </a>
+            </div>
+          </div>
+          <div class="att" v-if="attList.length > 0">
             <div class="att-title">
               <span>{{$t('attachments')}}</span>
-              <span>{{$t('attCount',{total: email.attList.length})}}</span>
+              <span>{{$t('attCount',{total: attList.length})}}</span>
             </div>
             <div class="att-box">
 
-              <div class="att-item" v-for="att in email.attList" :key="att.attId">
+              <div class="att-item" v-for="att in attList" :key="att.attId">
                 <div class="att-icon" @click="showImage(att.key)">
-                  <Icon v-bind="getIconByName(att.filename)" />
+                  <Icon v-bind="getIconByName(displayAttName(att))" />
                 </div>
                 <div class="att-name" @click="showImage(att.key)">
-                  {{ att.filename }}
+                  {{ displayAttName(att) }}
                 </div>
                 <div class="att-size">{{ formatBytes(att.size) }}</div>
                 <div class="opt-icon att-icon">
-                  <Icon v-if="isImage(att.filename)" icon="hugeicons:view" width="22" height="22" @click="showImage(att.key)"/>
-                  <a :href="cvtR2Url(att.key)" download>
+                  <Icon v-if="isImage(displayAttName(att))" icon="hugeicons:view" width="22" height="22" @click="showImage(att.key)"/>
+                  <a :href="attachmentDownloadUrl(att)" :download="displayAttName(att)">
                     <Icon icon="system-uicons:push-down" width="22" height="22"/>
                   </a>
                 </div>
@@ -75,10 +104,10 @@
 </template>
 <script setup>
 import ShadowHtml from '@/components/shadow-html/index.vue'
-import {reactive, ref, watch, onMounted, onUnmounted} from "vue";
+import {computed, reactive, ref, watch, onMounted, onUnmounted} from "vue";
 import {useRouter} from 'vue-router'
 import {ElMessage, ElMessageBox} from 'element-plus'
-import {emailDelete, emailRead} from "@/request/email.js";
+import {emailCalendar, emailDelete, emailRead} from "@/request/email.js";
 import {Icon} from "@iconify/vue";
 import {useEmailStore} from "@/store/email.js";
 import {useAccountStore} from "@/store/account.js";
@@ -92,6 +121,7 @@ import {allEmailDelete} from "@/request/all-email.js";
 import {useUiStore} from "@/store/ui.js";
 import {useI18n} from "vue-i18n";
 import {EmailUnreadEnum} from "@/enums/email-enum.js";
+import {attachmentDisplayName, attachmentDownloadUrl, formatEmailBody, isCalendarAttachment} from "@/utils/email-content.js";
 
 const uiStore = useUiStore();
 const settingStore = useSettingStore();
@@ -101,6 +131,18 @@ const router = useRouter()
 const email = emailStore.contentData.email
 const showPreview = ref(false)
 const srcList = reactive([])
+const calendarInvites = reactive([])
+const attList = computed(() => email.attList || [])
+const emailBody = computed(() => {
+  const body = formatEmailBody(email);
+  if (body.type === 'html') {
+    return {
+      type: 'html',
+      value: formatImage(body.value)
+    }
+  }
+  return body
+})
 
 const { t } = useI18n()
 watch(() => accountStore.currentAccountId, () => {
@@ -112,6 +154,7 @@ onMounted(() => {
     email.unread = EmailUnreadEnum.READ;
     emailRead([email.emailId]);
   }
+  loadCalendarInvites();
 })
 
 onUnmounted(() => {
@@ -148,9 +191,64 @@ function isImage(filename) {
   return ['png', 'jpg', 'jpeg', 'bmp', 'gif','jfif'].includes(getExtName(filename))
 }
 
+function displayAttName(att) {
+  const name = attachmentDisplayName(att);
+  return name === 'attachment' ? t('attachment') : name;
+}
+
+async function loadCalendarInvites() {
+  const calendarAtts = attList.value.filter(isCalendarAttachment);
+  if (calendarAtts.length === 0) {
+    return;
+  }
+
+  const invites = await Promise.all(calendarAtts.map(async att => {
+    try {
+      const invite = await emailCalendar(att.attId);
+      return hasCalendarData(invite) ? invite : null;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }));
+
+  calendarInvites.splice(0, calendarInvites.length, ...invites.filter(Boolean));
+}
+
+function hasCalendarData(invite) {
+  return !!(invite?.summary || invite?.start || invite?.end || invite?.teamsUrl || invite?.meetingId || invite?.accessCode);
+}
+
+function formatCalendarRange(invite) {
+  const start = formatCalendarPoint(invite.start);
+  const end = formatCalendarPoint(invite.end);
+  return [start, end].filter(Boolean).join(' - ');
+}
+
+function formatCalendarPoint(point) {
+  if (!point) {
+    return '';
+  }
+
+  if (point.iso) {
+    return formatDetailDate(point.iso);
+  }
+
+  if (point.local) {
+    const text = point.local.replace('T', ' ').slice(0, 16);
+    return point.timeZone ? `${text} (${point.timeZone})` : text;
+  }
+
+  return point.raw || '';
+}
+
 function formateReceive(recipient) {
-  recipient = JSON.parse(recipient)
-  return recipient.map(item => item.address).join(', ')
+  try {
+    recipient = JSON.parse(recipient || '[]')
+  } catch (e) {
+    return ''
+  }
+  return recipient.map(item => item.address).filter(Boolean).join(', ')
 }
 
 function changeStar() {
@@ -266,6 +364,59 @@ const handleDelete = () => {
   .content {
     display: flex;
     flex-direction: column;
+
+    .calendar-list {
+      margin-top: 10px;
+      margin-bottom: 8px;
+      display: grid;
+      gap: 10px;
+      width: min(620px, calc(100vw - 60px));
+    }
+
+    .calendar-card {
+      border: 1px solid var(--light-border-color);
+      border-radius: 6px;
+      padding: 12px 14px;
+      display: grid;
+      gap: 9px;
+      background: var(--light-ill);
+      color: var(--regular-text-color);
+    }
+
+    .calendar-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--primary-text-color);
+      font-weight: 600;
+    }
+
+    .calendar-title {
+      word-break: break-word;
+    }
+
+    .calendar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .calendar-label {
+      min-width: 68px;
+      color: var(--secondary-text-color);
+    }
+
+    .join-link {
+      color: var(--el-color-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: fit-content;
+      text-decoration: none;
+      font-weight: 600;
+    }
 
     .att {
       margin-top: 30px;
