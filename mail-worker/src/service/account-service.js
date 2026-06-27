@@ -50,7 +50,53 @@ const accountService = {
 		let accountRow = await this.selectByEmailIncludeDel(c, email);
 
 		if (accountRow && accountRow.isDel === isDel.DELETE) {
-			throw new BizError(t('isDelAccount'));
+			// 已注销的邮箱允许重新注册：先做权限检查，通过后恢复记录并绑定到当前用户
+
+			const userRow = await userService.selectById(c, userId);
+			const roleRow = await roleService.selectById(c, userRow.type);
+
+			if (userRow.email !== c.env.admin) {
+
+				if (roleRow.accountCount > 0) {
+					const userAccountCount = await accountService.countUserAccount(c, userId);
+					if (userAccountCount >= roleRow.accountCount) throw new BizError(t('accountLimit'), 403);
+				}
+
+				if (!roleService.hasAvailDomainPerm(roleRow.availDomain, email)) {
+					throw new BizError(t('noDomainPermAdd'), 403);
+				}
+
+			}
+
+			let addVerifyOpen = false;
+
+			if (addEmailVerify === settingConst.addEmailVerify.OPEN) {
+				addVerifyOpen = true;
+				await turnstileService.verify(c, token);
+			}
+
+			if (addEmailVerify === settingConst.addEmailVerify.COUNT) {
+				addVerifyOpen = await verifyRecordService.isOpenAddVerify(c, addVerifyCount);
+				if (addVerifyOpen) {
+					await turnstileService.verify(c, token);
+				}
+			}
+
+			// 恢复账号并重新绑定到当前用户
+			await orm(c).update(account).set({
+				isDel: isDel.NORMAL,
+				userId: userId,
+				name: emailUtils.getName(email)
+			}).where(sql`${account.email} COLLATE NOCASE = ${email}`).run();
+
+			if (addEmailVerify === settingConst.addEmailVerify.COUNT && !addVerifyOpen) {
+				const row = await verifyRecordService.increaseAddCount(c);
+				addVerifyOpen = row.count >= addVerifyCount;
+			}
+
+			accountRow = await this.selectByEmailIncludeDel(c, email);
+			accountRow.addVerifyOpen = addVerifyOpen;
+			return accountRow;
 		}
 
 		if (accountRow) {
@@ -127,7 +173,7 @@ const accountService = {
 			and(
 				eq(account.userId, userId),
 				eq(account.isDel, isDel.NORMAL),
-					or(
+				or(
 						lt(account.sort, lastSort),
 						and(
 							eq(account.sort, lastSort),
